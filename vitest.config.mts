@@ -1,12 +1,15 @@
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
+
+const root = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@": resolve(__dirname, "."),
+      "@": root,
       // The real package throws outside a React Server Components build.
-      "server-only": resolve(__dirname, "tests/support/server-only.ts"),
+      "server-only": fileURLToPath(new URL("./tests/support/server-only.ts", import.meta.url)),
     },
   },
   test: {
