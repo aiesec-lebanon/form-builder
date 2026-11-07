@@ -90,6 +90,64 @@
   --breakpoint-xl: 90rem;
 }
 
+/* App components that the design system doesn't cover, built on its tokens. */
+@layer components {
+  .fb-sheet {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--ae-surface-raised);
+    color: var(--ae-text);
+    max-width: none;
+    overflow: hidden;
+  }
+  .fb-sheet::backdrop {
+    background: var(--ae-scrim);
+  }
+  @media (max-width: 1023.98px) {
+    .fb-sheet {
+      position: fixed;
+      inset: auto 0 0 0;
+      width: 100%;
+      max-height: 88dvh;
+      border-radius: var(--ae-radius-lg) var(--ae-radius-lg) 0 0;
+      box-shadow: var(--ae-shadow-lg);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .fb-sheet[open] {
+      animation: fb-sheet-up var(--ae-duration-base) var(--ae-ease-enter);
+    }
+  }
+  @media (min-width: 1024px) {
+    .fb-sheet {
+      position: fixed;
+      inset: 0;
+      margin: auto;
+      width: min(var(--fb-sheet-width, 560px), calc(100vw - 64px));
+      height: fit-content;
+      max-height: min(760px, calc(100dvh - 64px));
+      border-radius: var(--ae-radius-lg);
+      box-shadow: var(--ae-shadow-lg);
+    }
+    .fb-sheet[open] {
+      animation: fb-dialog-in var(--ae-duration-base) var(--ae-ease-enter);
+    }
+  }
+  /* Transparent embeds let the host page's background show through. */
+  html:has(.fb-embed-transparent),
+  body:has(.fb-embed-transparent) {
+    background: transparent;
+  }
+  @keyframes fb-sheet-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes fb-dialog-in {
+    from { transform: translateY(8px) scale(0.98); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+}
+
 @layer base {
   *,
   ::before,

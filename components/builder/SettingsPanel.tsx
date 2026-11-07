@@ -1,0 +1,142 @@
+"use client";
+
+import { Monitor, Moon, Sun } from "lucide-react";
+import * as React from "react";
+
+import { PROGRAMS, Switch, TextField, Textarea, cx } from "@/components/aiesec";
+import { PROGRAM_IDS, type FormDocument, type FormSettings, type FormTheme } from "@/lib/forms/schema";
+
+type Props = {
+  doc: FormDocument;
+  onSettings: (patch: Partial<FormSettings>) => void;
+  onTheme: (patch: Partial<FormTheme>) => void;
+  children?: React.ReactNode;
+};
+
+function isHttps(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Only valid https links (or nothing) reach the document, so autosave never fails on a half-typed URL. */
+function RedirectSetting({ value, onChange }: { value: string | null; onChange: (value: string | null) => void }) {
+  const [text, setText] = React.useState(value ?? "");
+  const invalid = text.trim() !== "" && !isHttps(text.trim());
+  return (
+    <TextField
+      label="After submitting, go to this page"
+      optional
+      type="url"
+      inputMode="url"
+      placeholder="https://aiesec.org/thank-you"
+      hint="Leave empty to show your confirmation message."
+      error={invalid ? "Use a link that starts with https://" : undefined}
+      value={text}
+      onChange={(event) => {
+        const next = event.target.value;
+        setText(next);
+        if (!next.trim()) onChange(null);
+        else if (isHttps(next.trim())) onChange(next.trim());
+      }}
+    />
+  );
+}
+
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 sm:p-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="ae-h4">{title}</h2>
+        {description && <p className="ae-body-sm text-text-muted">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const MODES: Array<{ id: FormTheme["mode"]; label: string; icon: React.ReactNode }> = [
+  { id: "auto", label: "Match device", icon: <Monitor size={18} aria-hidden="true" /> },
+  { id: "light", label: "Light", icon: <Sun size={18} aria-hidden="true" /> },
+  { id: "dark", label: "Dark", icon: <Moon size={18} aria-hidden="true" /> },
+];
+
+export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
+  const { settings, theme } = doc;
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:py-10">
+      {children}
+
+      <Section title="After someone responds" description="What respondents see once their answers are sent.">
+        <TextField label="Confirmation title" value={settings.confirmationTitle} maxLength={200} onChange={(event) => onSettings({ confirmationTitle: event.target.value })} />
+        <Textarea
+          label="Confirmation message"
+          optional
+          rows={3}
+          value={settings.confirmationMessage}
+          maxLength={2000}
+          placeholder="We'll be in touch within a week."
+          onChange={(event) => onSettings({ confirmationMessage: event.target.value })}
+        />
+        <RedirectSetting value={settings.redirectUrl} onChange={(redirectUrl) => onSettings({ redirectUrl })} />
+        <Switch label="Let people submit another response" checked={settings.allowAnotherResponse} onChange={(event) => onSettings({ allowAnotherResponse: event.target.checked })} />
+      </Section>
+
+      <Section title="Form behaviour">
+        <TextField
+          label="Submit button text"
+          hint="Say what happens, like “Send application”."
+          value={settings.submitLabel}
+          maxLength={40}
+          onChange={(event) => onSettings({ submitLabel: event.target.value })}
+          onBlur={(event) => {
+            if (!event.target.value.trim()) onSettings({ submitLabel: "Send response" });
+          }}
+        />
+        <Switch label="Show a progress bar" hint="Only appears on forms with more than one page." checked={settings.showProgressBar} onChange={(event) => onSettings({ showProgressBar: event.target.checked })} />
+      </Section>
+
+      <Section title="Look" description="Actions stay AIESEC Blue. The accent colours the form's header and highlights.">
+        <fieldset className="ae-fieldset">
+          <legend className="ae-fieldset__legend ae-label">Accent colour</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {PROGRAM_IDS.map((id) => (
+              <label
+                key={id}
+                data-program={id}
+                className={cx(
+                  "flex cursor-pointer items-center gap-3 rounded-md border p-3 transition-colors duration-150",
+                  theme.accent === id ? "border-primary bg-primary-soft" : "border-border hover:border-border-strong",
+                )}
+              >
+                <input type="radio" name="accent" value={id} checked={theme.accent === id} onChange={() => onTheme({ accent: id })} className="ae-radio" />
+                <span aria-hidden="true" className="inline-block size-5 rounded-full bg-accent" />
+                <span className="ae-body-sm text-text">{PROGRAMS[id]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="ae-fieldset">
+          <legend className="ae-fieldset__legend ae-label">Colour scheme</legend>
+          <div className="flex flex-wrap gap-2">
+            {MODES.map((mode) => (
+              <label
+                key={mode.id}
+                className={cx(
+                  "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 transition-colors duration-150",
+                  theme.mode === mode.id ? "border-primary bg-primary-soft text-primary-text" : "border-border text-text hover:border-border-strong",
+                )}
+              >
+                <input type="radio" name="mode" value={mode.id} checked={theme.mode === mode.id} onChange={() => onTheme({ mode: mode.id })} className="sr-only" />
+                {mode.icon}
+                <span className="ae-body-sm">{mode.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </Section>
+    </div>
+  );
+}

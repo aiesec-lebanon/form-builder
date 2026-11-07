@@ -1,0 +1,40 @@
+import {
+  AlignLeft,
+  AtSign,
+  Calendar,
+  CircleDot,
+  Clock,
+  FileUp,
+  Hash,
+  Heading,
+  Link2,
+  Phone,
+  ShieldCheck,
+  SlidersHorizontal,
+  SquareCheck,
+  SquareChevronDown,
+  Star,
+  Type,
+  type LucideIcon,
+} from "lucide-react";
+
+import type { FieldType } from "@/lib/forms/schema";
+
+export const FIELD_ICONS: Record<FieldType, LucideIcon> = {
+  short_text: Type,
+  long_text: AlignLeft,
+  email: AtSign,
+  phone: Phone,
+  number: Hash,
+  url: Link2,
+  date: Calendar,
+  time: Clock,
+  single_choice: CircleDot,
+  multi_choice: SquareCheck,
+  dropdown: SquareChevronDown,
+  linear_scale: SlidersHorizontal,
+  rating: Star,
+  file_upload: FileUp,
+  consent: ShieldCheck,
+  statement: Heading,
+};
