@@ -34,3 +34,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local planning and assistant files (kept out of the repo)
+/.10x/
+/.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
