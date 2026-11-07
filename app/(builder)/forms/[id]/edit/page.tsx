@@ -5,7 +5,7 @@ import { Builder } from "@/components/builder/Builder";
 import { CollaboratorsPanel } from "@/components/builder/CollaboratorsPanel";
 import { loadCollaboration } from "@/lib/forms/collaboration";
 import type { BuilderTab } from "@/components/builder/TopBar";
-import { requireUser } from "@/lib/auth/current-user";
+import { getCurrentUser, requireUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { listSummaries } from "@/lib/destinations/store";
 import { baseUrl, googleConfigured } from "@/lib/env";
@@ -23,8 +23,10 @@ const TABS: BuilderTab[] = ["questions", "connect", "settings"];
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const form = await db.form.findUnique({ where: { id }, select: { title: true } }).catch(() => null);
-  return { title: form ? `Edit ${form.title}` : "Edit form" };
+  // Same access rule as the page: never reveal a title to someone who can't edit it.
+  const user = await getCurrentUser();
+  const access = user ? await getFormAccess(id, user.id, "edit") : null;
+  return { title: access ? `Edit ${access.form.title}` : "Edit form" };
 }
 
 export default async function EditFormPage({ params, searchParams }: Props) {

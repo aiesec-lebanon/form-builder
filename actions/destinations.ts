@@ -23,6 +23,7 @@ import { createFolder, createSpreadsheet } from "@/lib/google/api";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
 import { assertPublicHttpsUrl, BlockedHostError } from "@/lib/net/guard";
+import { rateLimit } from "@/lib/rate-limit";
 import { clientIp, userAgent } from "@/lib/request";
 
 type Destinations = { destinations: DestinationSummary[] };
@@ -41,6 +42,13 @@ async function authorize(formId: string) {
 async function meta() {
   const list = await headers();
   return { ip: clientIp(list), userAgent: userAgent(list) };
+}
+
+const PROBE_LIMIT = "You've tried a lot of connections. Wait a few minutes, then try again.";
+
+/** Connection tests reach owner-supplied hosts: cap them so we can't be used to probe networks. */
+async function probeAllowed(userId: string): Promise<boolean> {
+  return (await rateLimit(`destination-probe:${userId}`, 30, 600)).allowed;
 }
 
 /** Creates a destination as primary if the form has none, otherwise as secondary. */
@@ -96,6 +104,7 @@ function hostProblem(error: unknown): string {
 export async function addWebhook(formId: string, input: { url: string }): Promise<ActionResult<Destinations & { signingSecret: string }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
+  if (!(await probeAllowed(auth.user.id))) return fail(PROBE_LIMIT);
   const url = z.string().trim().max(2000).safeParse(input.url);
   if (!url.success || !url.data) return fail("Enter the webhook URL.", { fieldErrors: { url: "Enter the webhook URL." } });
   try {
@@ -129,6 +138,7 @@ const supabaseInput = z.object({
 export async function addSupabase(formId: string, raw: z.input<typeof supabaseInput>): Promise<ActionResult<Destinations>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
+  if (!(await probeAllowed(auth.user.id))) return fail(PROBE_LIMIT);
   const parsed = supabaseInput.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors = Object.fromEntries(parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message]));
@@ -165,6 +175,7 @@ const postgresInput = z.object({
 export async function addPostgres(formId: string, raw: z.input<typeof postgresInput>): Promise<ActionResult<Destinations>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
+  if (!(await probeAllowed(auth.user.id))) return fail(PROBE_LIMIT);
   const parsed = postgresInput.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors = Object.fromEntries(parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message]));
@@ -249,6 +260,7 @@ export async function addGoogleDrive(formId: string, input: { connectionId: stri
 export async function testDestinationAction(formId: string, destinationId: string): Promise<ActionResult<Destinations & { passed: boolean; message: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
+  if (!(await probeAllowed(auth.user.id))) return fail(PROBE_LIMIT);
   const destination = await loadDestination(formId, destinationId);
   if (!destination) return fail("That destination was removed.");
   const result = await testDestination(destination);
