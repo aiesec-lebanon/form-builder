@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { Builder } from "@/components/builder/Builder";
+import { CollaboratorsPanel } from "@/components/builder/CollaboratorsPanel";
+import { loadCollaboration } from "@/lib/forms/collaboration";
 import type { BuilderTab } from "@/components/builder/TopBar";
 import { requireUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
@@ -38,9 +40,10 @@ export default async function EditFormPage({ params, searchParams }: Props) {
     doc = blankDocument(form.title);
   }
 
-  const [destinations, googleAccounts] = await Promise.all([
+  const [destinations, googleAccounts, collaboration] = await Promise.all([
     listSummaries(id),
     db.googleConnection.findMany({ where: { userId: user.id, status: "active" }, select: { id: true, email: true }, orderBy: { createdAt: "asc" } }),
+    loadCollaboration(id, user.id),
   ]);
   const tab = (await searchParams).tab;
   const initialTab = TABS.includes(tab as BuilderTab) ? (tab as BuilderTab) : "questions";
@@ -63,6 +66,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       googleConfigured={googleConfigured()}
       googleAccounts={googleAccounts}
       initialTab={initialTab}
+      collaborators={collaboration ? <CollaboratorsPanel formId={form.id} initial={collaboration} /> : null}
     />
   );
 }
