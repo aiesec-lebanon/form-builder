@@ -20,6 +20,7 @@ import { Inspector } from "./Inspector";
 import { Palette } from "./Palette";
 import { PreviewDialog } from "./PreviewDialog";
 import { PublishProblemsDialog } from "./PublishProblemsDialog";
+import { ResponseRules } from "./ResponseRules";
 import { SettingsPanel } from "./SettingsPanel";
 import { ShareDialog } from "./ShareDialog";
 import { Sheet } from "./Sheet";
@@ -34,6 +35,9 @@ export type BuilderForm = {
   publishedRevision: number | null;
   publishedAt: string | null;
   acceptingResponses: boolean;
+  closesAt: string | null;
+  responseLimit: number | null;
+  responseCount: number;
   updatedAt: string;
   role: "owner" | "editor";
 };
@@ -335,6 +339,16 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         {tab === "settings" && (
           <main id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" className={panelClass}>
             <SettingsPanel doc={state.doc} onSettings={(patch) => dispatch({ type: "updateSettings", patch })} onTheme={(patch) => dispatch({ type: "updateTheme", patch })}>
+              {published && (
+                <ResponseRules
+                  formId={form.id}
+                  acceptingResponses={form.acceptingResponses}
+                  closesAt={form.closesAt}
+                  responseLimit={form.responseLimit}
+                  responseCount={form.responseCount}
+                  onChange={(rules) => setForm((current) => ({ ...current, ...rules }))}
+                />
+              )}
               {collaborators}
             </SettingsPanel>
           </main>

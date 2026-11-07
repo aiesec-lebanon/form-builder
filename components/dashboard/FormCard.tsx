@@ -89,7 +89,12 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
       footer={
         <>
           <StatusBadge status={form.status} />
-          {form.status !== "draft" && <span className="ae-caption text-text-muted">{plural(form.responseCount, "response")}</span>}
+          {form.status !== "draft" && (
+            <span className="ae-caption text-text-muted">
+              {plural(form.responseCount, "response")}
+              {form.completionRate !== null && <span title="Views that ended in a response"> · {form.completionRate}% complete</span>}
+            </span>
+          )}
           {form.failing && (
             <span className="inline-flex items-center gap-1 ae-caption font-bold text-danger-text">
               <TriangleAlert size={14} aria-hidden="true" />

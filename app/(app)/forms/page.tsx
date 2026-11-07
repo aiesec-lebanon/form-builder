@@ -5,6 +5,7 @@ import { FormsDashboard, type DashboardForm } from "@/components/dashboard/Forms
 import { requireUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { baseUrl } from "@/lib/env";
+import { completionRate } from "@/lib/forms/views";
 
 export const metadata: Metadata = { title: "Your forms" };
 
@@ -27,7 +28,10 @@ export default async function FormsPage({ searchParams }: Props) {
       slug: true,
       publishedAt: true,
       acceptingResponses: true,
+      closesAt: true,
+      responseLimit: true,
       responseCount: true,
+      viewCount: true,
       updatedAt: true,
       deletedAt: true,
       ownerId: true,
@@ -42,6 +46,7 @@ export default async function FormsPage({ searchParams }: Props) {
     slug: form.slug,
     status: formStatus(form),
     responseCount: form.responseCount,
+    completionRate: completionRate(form.responseCount, form.viewCount),
     updatedAt: form.updatedAt.toISOString(),
     deletedAt: form.deletedAt?.toISOString() ?? null,
     isOwner: form.ownerId === user.id,

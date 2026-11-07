@@ -5,6 +5,7 @@ import * as React from "react";
 
 import { Alert, Button, cx, Progress } from "@/components/aiesec";
 import { PoweredByAiesec } from "@/components/brand/Logo";
+import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { allFields, type FormDocument } from "@/lib/forms/schema";
 
@@ -23,7 +24,8 @@ type Props = {
   slug?: string;
   publishedRevision?: number;
   renderToken?: string;
-  closed?: boolean;
+  /** Why the form isn't taking responses, or null when it is. */
+  closedReason?: ClosedReason | null;
   transparent?: boolean;
   /** Overrides the form's colour scheme (embed ?theme=). */
   themeOverride?: "light" | "dark";
@@ -51,14 +53,21 @@ const SEND_ERRORS: Record<string, string> = {
   default: "Something went wrong while sending. Your answers are saved on this device, so you can try again.",
 };
 
-export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closed = false, transparent = false, themeOverride, fullHeight = false }: Props) {
+const CLOSED_COPY: Record<ClosedReason, string> = {
+  closed: "It's no longer accepting responses. If you think this is a mistake, contact the person who shared it.",
+  expired: "It stopped accepting responses. If you think this is a mistake, contact the person who shared it.",
+  full: "It has received all the responses it needs. Thanks for your interest.",
+};
+
+export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closedReason = null, transparent = false, themeOverride, fullHeight = false }: Props) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const summaryRef = React.useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
   const [pageIndex, setPageIndex] = React.useState(0);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [checked, setChecked] = React.useState<Set<number>>(new Set());
-  const [status, setStatus] = React.useState<Status>(closed ? "closed" : "filling");
+  const [status, setStatus] = React.useState<Status>(closedReason ? "closed" : "filling");
+  const [closedWhy, setClosedWhy] = React.useState<ClosedReason>(closedReason ?? "closed");
   const [sendError, setSendError] = React.useState<string | null>(null);
   const [restored, setRestored] = React.useState(false);
   const [busyUploads, setBusyUploads] = React.useState<Set<string>>(new Set());
@@ -210,7 +219,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ responseId: responseId(), renderToken, answers, website: honeypot }),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string; fieldErrors?: Record<string, string> };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string; reason?: ClosedReason; fieldErrors?: Record<string, string> };
       if (response.ok) {
         clearDraft();
         setStatus("sent");
@@ -219,6 +228,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
         return;
       }
       if (response.status === 410) {
+        setClosedWhy(body.reason ?? "closed");
         setStatus("closed");
         return;
       }
@@ -301,7 +311,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
               <Lock size={28} aria-hidden="true" />
             </span>
             <h1 className="ae-h2">{doc.title || "This form"} is closed</h1>
-            <p className="ae-body-lg text-text-muted">It&apos;s no longer accepting responses. If you think this is a mistake, contact the person who shared it.</p>
+            <p className="ae-body-lg text-text-muted">{CLOSED_COPY[closedWhy]}</p>
           </section>
         ) : (
           <>

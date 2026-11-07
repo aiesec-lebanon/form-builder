@@ -5,6 +5,7 @@ import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { deliverToPrimary, deliverToSecondaries } from "@/lib/destinations/deliver";
 import { baseUrl } from "@/lib/env";
+import { availability } from "@/lib/forms/availability";
 import { validateAnswers } from "@/lib/forms/fields";
 import { buildPayload } from "@/lib/forms/payload";
 import { verifyRenderToken } from "@/lib/forms/render-token";
@@ -18,6 +19,12 @@ import { resolveUploadedFiles } from "@/lib/uploads";
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 256 * 1024;
+
+const CLOSED_MESSAGES = {
+  closed: "This form is no longer accepting responses.",
+  expired: "This form has closed.",
+  full: "This form has reached its response limit.",
+} as const;
 
 const bodySchema = z.object({
   responseId: z.string().uuid(),
@@ -43,10 +50,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const form = await db.form.findUnique({
     where: { slug },
-    select: { id: true, slug: true, published: true, acceptingResponses: true, deletedAt: true },
+    select: { id: true, slug: true, published: true, acceptingResponses: true, closesAt: true, responseLimit: true, responseCount: true, deletedAt: true },
   });
   if (!form || form.deletedAt || !form.published) return jsonError(404, "not_found", "This form doesn't exist anymore.");
-  if (!form.acceptingResponses) return jsonError(410, "closed", "This form is no longer accepting responses.");
+  const open = availability(form);
+  if (!open.open) return jsonError(410, "closed", CLOSED_MESSAGES[open.reason], { reason: open.reason });
 
   // Bots fill every field; people never see this one. Pretend all went well.
   if (body.website) {

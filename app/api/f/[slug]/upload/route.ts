@@ -5,6 +5,7 @@ import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { classifyError } from "@/lib/destinations/errors";
 import { baseUrl } from "@/lib/env";
+import { availability } from "@/lib/forms/availability";
 import { bytesFromMb, fileTypeAllowed } from "@/lib/forms/fields/other";
 import { allFields, parseDocument } from "@/lib/forms/schema";
 import { startResumableUpload } from "@/lib/google/api";
@@ -37,9 +38,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return jsonError(400, "bad_request", "Something was wrong with that upload.");
   const body = parsed.data;
 
-  const form = await db.form.findUnique({ where: { slug }, select: { id: true, published: true, acceptingResponses: true, deletedAt: true } });
+  const form = await db.form.findUnique({
+    where: { slug },
+    select: { id: true, published: true, acceptingResponses: true, closesAt: true, responseLimit: true, responseCount: true, deletedAt: true },
+  });
   if (!form || form.deletedAt || !form.published) return jsonError(404, "not_found", "This form doesn't exist anymore.");
-  if (!form.acceptingResponses) return jsonError(410, "closed", "This form is no longer accepting responses.");
+  if (!availability(form).open) return jsonError(410, "closed", "This form is no longer accepting responses.");
 
   const doc = parseDocument(form.published);
   const field = doc ? allFields(doc).find((item) => item.id === body.fieldId) : undefined;

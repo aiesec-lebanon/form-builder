@@ -1,12 +1,13 @@
 import { CircleDot, CirclePause, PencilLine } from "lucide-react";
 
 import { Badge } from "@/components/aiesec";
+import { availability, type AvailabilityInput } from "@/lib/forms/availability";
 
 export type FormStatus = "draft" | "live" | "closed";
 
-export function formStatus(form: { publishedAt: Date | string | null; acceptingResponses: boolean }): FormStatus {
+export function formStatus(form: AvailabilityInput & { publishedAt: Date | string | null }): FormStatus {
   if (!form.publishedAt) return "draft";
-  return form.acceptingResponses ? "live" : "closed";
+  return availability(form).open ? "live" : "closed";
 }
 
 /** Status with an icon and a word, never colour alone. */

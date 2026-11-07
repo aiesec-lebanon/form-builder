@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { z } from "zod";
 
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { recordAudit } from "@/lib/audit";
@@ -87,6 +88,25 @@ export async function updateSlug(formId: string, requested: string): Promise<Act
   revalidatePath(`/f/${access.form.slug}`);
   revalidatePath(`/f/${slug}`);
   return ok({ slug });
+}
+
+const responseRulesSchema = z.object({
+  closesAt: z.string().datetime({ offset: true }).nullable(),
+  responseLimit: z.number().int().min(1).max(1_000_000).nullable(),
+});
+
+/** Close date and response limit. Apply immediately, no republish needed. */
+export async function updateResponseRules(formId: string, input: z.input<typeof responseRulesSchema>): Promise<ActionResult<{ closesAt: string | null; responseLimit: number | null }>> {
+  const user = await getCurrentUser();
+  if (!user) return fail(SIGNED_OUT);
+  const access = await getFormAccess(formId, user.id, "edit");
+  if (!access) return fail(NOT_FOUND);
+  const parsed = responseRulesSchema.safeParse(input);
+  if (!parsed.success) return fail("Check the close date and response limit.");
+  const closesAt = parsed.data.closesAt ? new Date(parsed.data.closesAt) : null;
+  await db.form.update({ where: { id: formId }, data: { closesAt, responseLimit: parsed.data.responseLimit } });
+  revalidatePath(`/f/${access.form.slug}`);
+  return ok({ closesAt: closesAt?.toISOString() ?? null, responseLimit: parsed.data.responseLimit });
 }
 
 /** Opens or closes the live form to new responses. */

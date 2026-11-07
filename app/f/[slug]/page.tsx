@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { cache } from "react";
 
 import { FormRenderer } from "@/components/form/FormRenderer";
 import { db } from "@/lib/db";
+import { availability } from "@/lib/forms/availability";
 import { issueRenderToken } from "@/lib/forms/render-token";
 import { parseDocument } from "@/lib/forms/schema";
+import { countView } from "@/lib/forms/views";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +18,7 @@ const loadForm = cache(async (slug: string) => {
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) return null;
   const form = await db.form.findUnique({
     where: { slug },
-    select: { id: true, published: true, publishedRevision: true, acceptingResponses: true, deletedAt: true },
+    select: { id: true, published: true, publishedRevision: true, acceptingResponses: true, closesAt: true, responseLimit: true, responseCount: true, deletedAt: true },
   });
   if (!form || form.deletedAt || !form.published) return null;
   const doc = parseDocument(form.published);
@@ -37,6 +40,8 @@ export default async function PublicFormPage({ params }: Props) {
   const { slug } = await params;
   const form = await loadForm(slug);
   if (!form) notFound();
+  const open = availability(form);
+  if (open.open) after(() => countView(form.id));
   return (
     <main className="flex min-h-dvh flex-col">
       <FormRenderer
@@ -45,7 +50,7 @@ export default async function PublicFormPage({ params }: Props) {
         slug={slug}
         publishedRevision={form.publishedRevision ?? 0}
         renderToken={issueRenderToken(form.id)}
-        closed={!form.acceptingResponses}
+        closedReason={open.open ? null : open.reason}
         fullHeight
       />
     </main>

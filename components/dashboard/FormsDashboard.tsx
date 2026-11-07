@@ -16,6 +16,8 @@ export type DashboardForm = {
   slug: string;
   status: FormStatus;
   responseCount: number;
+  /** Percent of views that ended in a response; null with too few views. */
+  completionRate: number | null;
   updatedAt: string;
   deletedAt: string | null;
   isOwner: boolean;

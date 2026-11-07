@@ -59,6 +59,9 @@ export default async function EditFormPage({ params, searchParams }: Props) {
         publishedRevision: form.publishedRevision,
         publishedAt: form.publishedAt?.toISOString() ?? null,
         acceptingResponses: form.acceptingResponses,
+        closesAt: form.closesAt?.toISOString() ?? null,
+        responseLimit: form.responseLimit,
+        responseCount: form.responseCount,
         updatedAt: form.updatedAt.toISOString(),
         role: access.role,
       }}

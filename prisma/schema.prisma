@@ -55,6 +55,12 @@ model Form {
   publishedRevision  Int?      @map("published_revision")
   publishedAt        DateTime? @map("published_at") @db.Timestamptz(6)
   acceptingResponses Boolean   @default(true) @map("accepting_responses")
+  /// Stops accepting responses after this moment (applies immediately, no republish).
+  closesAt           DateTime? @map("closes_at") @db.Timestamptz(6)
+  /// Stops accepting responses once responseCount reaches this.
+  responseLimit      Int?      @map("response_limit")
+  /// Public page views (aggregate only), for completion rates.
+  viewCount          Int       @default(0) @map("view_count")
   responseCount      Int       @default(0) @map("response_count")
   lastResponseAt     DateTime? @map("last_response_at") @db.Timestamptz(6)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
