@@ -1,0 +1,28 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+import { safeEqual } from "@/lib/crypto";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { pruneRateLimits } from "@/lib/rate-limit";
+
+export const dynamic = "force-dynamic";
+
+const TRASH_DAYS = 30;
+const AUDIT_DAYS = 365;
+const day = 24 * 60 * 60 * 1000;
+
+/** Daily housekeeping (Vercel Cron sends `Authorization: Bearer $CRON_SECRET`). */
+export async function GET(request: NextRequest) {
+  const presented = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  if (!presented || !safeEqual(presented, env().CRON_SECRET)) return new NextResponse(null, { status: 401 });
+
+  const started = Date.now();
+  const [rateLimits, trashedForms, auditEvents] = await Promise.all([
+    pruneRateLimits(),
+    db.form.deleteMany({ where: { deletedAt: { lt: new Date(Date.now() - TRASH_DAYS * day) } } }).then((result) => result.count),
+    db.auditEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - AUDIT_DAYS * day) } } }).then((result) => result.count),
+  ]);
+  logger.info("cron.cleanup", { rateLimits, trashedForms, auditEvents, ms: Date.now() - started });
+  return NextResponse.json({ ok: true, rateLimits, trashedForms, auditEvents });
+}

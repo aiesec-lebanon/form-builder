@@ -5,6 +5,7 @@ import { safeReturnTo } from "@/lib/auth/oauth";
 import { newSessionPayload, nowSeconds, sealSession, SESSION_COOKIE, SESSION_ROLLING_SECONDS, sessionCookieOptions } from "@/lib/auth/session";
 import { acceptPendingInvites, upsertUser } from "@/lib/auth/sign-in";
 import { baseUrl, devLoginEnabled } from "@/lib/env";
+import { clientIp, userAgent } from "@/lib/request";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,14 @@ export async function GET(request: NextRequest) {
   const personId = `900000000${as}`;
   const user = await upsertUser(personId, { ...person, photoUrl: null, officeId: null });
   await acceptPendingInvites(user);
-  await recordAudit({ type: "auth.sign_in", actorId: user.id, target: { type: "user", id: user.id }, metadata: { dev: true } });
+  await recordAudit({
+    type: "auth.sign_in",
+    actorId: user.id,
+    target: { type: "user", id: user.id },
+    metadata: { dev: true },
+    ip: clientIp(request.headers),
+    userAgent: userAgent(request.headers),
+  });
 
   const now = nowSeconds();
   const payload = newSessionPayload({
