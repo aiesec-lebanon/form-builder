@@ -53,11 +53,23 @@ const length = (max: number) => z.number().int().min(0).max(max).nullable().defa
 const placeholder = z.string().max(200).default("");
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+export const CONDITION_OPERATORS = ["is", "is_not", "contains", "answered", "not_answered"] as const;
+export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
+
+/** Show a question or page only when an earlier answer matches (ADR-009). */
+export const conditionSchema = z.object({
+  fieldId,
+  operator: z.enum(CONDITION_OPERATORS),
+  value: z.string().max(LIMITS.label).default(""),
+});
+export type Condition = z.infer<typeof conditionSchema>;
+
 const base = {
   id: fieldId,
   label: z.string().max(LIMITS.label).default(""),
   description: z.string().max(LIMITS.description).default(""),
   required: z.boolean().default(false),
+  visibleIf: conditionSchema.nullable().default(null),
 };
 
 export const optionSchema = z.object({ id: optionId, label: z.string().max(LIMITS.label) });
@@ -137,6 +149,7 @@ export const pageSchema = z.object({
   id: pageId,
   title: z.string().max(300).default(""),
   description: z.string().max(LIMITS.description).default(""),
+  visibleIf: conditionSchema.nullable().default(null),
   fields: z.array(fieldSchema).max(LIMITS.fields).default([]),
 });
 export type Page = z.infer<typeof pageSchema>;

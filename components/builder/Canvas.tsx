@@ -2,14 +2,17 @@
 
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { FilePlus2, Plus, Trash2 } from "lucide-react";
+import { FilePlus2, GitBranch, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
 import { collectsAnswer } from "@/lib/forms/fields";
 import type { Field, FormDocument, Page } from "@/lib/forms/schema";
 
+import { describeCondition } from "@/lib/forms/logic";
+
 import { FieldCard } from "./FieldCard";
+import { LogicChip, LogicEditor } from "./LogicEditor";
 import { InlineText } from "./InlineText";
 import { locateField, type BuilderAction, type BuilderState } from "./state";
 
@@ -47,6 +50,12 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
   const { doc, selectedId, focusId } = state;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const numbers = React.useMemo(() => questionNumbers(doc), [doc]);
+  const logicLabels = React.useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const page of doc.pages) for (const field of page.fields) if (field.visibleIf) labels.set(field.id, describeCondition(doc, field.visibleIf));
+    return labels;
+  }, [doc]);
+  const [logicOpen, setLogicOpen] = React.useState<string | null>(null);
   const flat = React.useMemo(() => doc.pages.flatMap((page) => page.fields.map((field) => field.id)), [doc]);
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -115,6 +124,23 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
                     maxLength={2000}
                     className="ae-body-sm text-text-muted"
                   />
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    {page.visibleIf ? <LogicChip doc={doc} condition={page.visibleIf} /> : null}
+                    <button
+                      type="button"
+                      aria-expanded={logicOpen === page.id}
+                      onClick={() => setLogicOpen((current) => (current === page.id ? null : page.id))}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 ae-body-sm text-text-muted hover:bg-bg-subtle hover:text-text"
+                    >
+                      <GitBranch size={16} aria-hidden="true" />
+                      {page.visibleIf ? "Edit page logic" : "Show this page only when…"}
+                    </button>
+                  </div>
+                  {logicOpen === page.id && (
+                    <div className="pt-2">
+                      <LogicEditor doc={doc} target={{ pageId: page.id }} value={page.visibleIf} noun="page" onChange={(visibleIf) => dispatch({ type: "updatePage", id: page.id, patch: { visibleIf } })} />
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -139,6 +165,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
                       onDuplicate={onDuplicate}
                       onDelete={onDelete}
                       onOpenSettings={onOpenSettings}
+                      logicLabel={logicLabels.get(field.id) ?? null}
                     />
                   );
                 })}

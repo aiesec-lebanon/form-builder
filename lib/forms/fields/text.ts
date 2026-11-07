@@ -28,7 +28,7 @@ export const shortText: FieldDefinition<FieldOf<"short_text">> = {
   hint: "A name, a title, one line",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "short_text", label: "", description: "", required: false, placeholder: "", minLength: null, maxLength: null }),
+  create: (id) => ({ id, type: "short_text", label: "", description: "", required: false, visibleIf: null, placeholder: "", minLength: null, maxLength: null }),
   validate: (field, raw) => {
     const text = readText(raw, LIMITS.shortText);
     if (text === null) return ok(null);
@@ -46,7 +46,7 @@ export const longText: FieldDefinition<FieldOf<"long_text">> = {
   hint: "Longer answers, motivation, feedback",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "long_text", label: "", description: "", required: false, placeholder: "", minLength: null, maxLength: null }),
+  create: (id) => ({ id, type: "long_text", label: "", description: "", required: false, visibleIf: null, placeholder: "", minLength: null, maxLength: null }),
   validate: (field, raw) => {
     const text = readText(raw, LIMITS.longText);
     if (text === null) return ok(null);
@@ -66,7 +66,7 @@ export const email: FieldDefinition<FieldOf<"email">> = {
   hint: "Checks the address looks right",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "email", label: "Email address", description: "", required: false, placeholder: "name@example.com" }),
+  create: (id) => ({ id, type: "email", label: "Email address", description: "", required: false, visibleIf: null, placeholder: "name@example.com" }),
   validate: (_field, raw) => {
     const text = readText(raw, 254);
     if (text === null) return ok(null);
@@ -86,7 +86,7 @@ export const phone: FieldDefinition<FieldOf<"phone">> = {
   hint: "International numbers welcome",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "phone", label: "Phone number", description: "", required: false, placeholder: "+961 3 123 456" }),
+  create: (id) => ({ id, type: "phone", label: "Phone number", description: "", required: false, visibleIf: null, placeholder: "+961 3 123 456" }),
   validate: (_field, raw) => {
     const text = readText(raw, 40);
     if (text === null) return ok(null);
@@ -112,7 +112,7 @@ export const number: FieldDefinition<FieldOf<"number">> = {
   hint: "Age, quantity, budget",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "number", label: "", description: "", required: false, placeholder: "", min: null, max: null, integer: false }),
+  create: (id) => ({ id, type: "number", label: "", description: "", required: false, visibleIf: null, placeholder: "", min: null, max: null, integer: false }),
   validate: (field, raw) => {
     if (raw === undefined || raw === null || (typeof raw === "string" && !raw.trim())) return ok(null);
     const value = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw.trim().replace(/,/g, "")) : Number.NaN;
@@ -145,7 +145,7 @@ export const url: FieldDefinition<FieldOf<"url">> = {
   hint: "Portfolio, LinkedIn, website",
   group: "text",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "url", label: "", description: "", required: false, placeholder: "https://" }),
+  create: (id) => ({ id, type: "url", label: "", description: "", required: false, visibleIf: null, placeholder: "https://" }),
   validate: (_field, raw) => {
     const text = readText(raw, 2000);
     if (text === null) return ok(null);

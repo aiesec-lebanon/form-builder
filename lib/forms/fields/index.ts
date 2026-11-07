@@ -65,7 +65,7 @@ export function compatibleTypes(type: FieldType): FieldType[] {
 export function convertField(field: Field, type: FieldType): Field {
   if (field.type === type) return field;
   const next = definitionOf(type).create(field.id) as Field;
-  const merged: Record<string, unknown> = { ...next, label: field.label, description: field.description, required: field.required };
+  const merged: Record<string, unknown> = { ...next, label: field.label, description: field.description, required: field.required, visibleIf: field.visibleIf };
   if ("placeholder" in field && "placeholder" in next) {
     // Keep a custom placeholder, but not another type's default example.
     const previousDefault = (definitionOf(field.type).create(field.id) as { placeholder?: string }).placeholder;

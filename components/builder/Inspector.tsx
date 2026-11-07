@@ -6,9 +6,10 @@ import { Checkbox, Select, Switch, TextField, Textarea } from "@/components/aies
 import { definitionOf } from "@/lib/forms/fields";
 import { FILE_KIND_LABEL } from "@/lib/forms/fields/other";
 import { newId } from "@/lib/forms/ids";
-import { FILE_KINDS, LIMITS, isChoiceField, type ChoiceField, type Field, type FileKind, type Option } from "@/lib/forms/schema";
+import { FILE_KINDS, LIMITS, isChoiceField, type ChoiceField, type Field, type FileKind, type FormDocument, type Option } from "@/lib/forms/schema";
 
 import { FIELD_ICONS } from "./fieldIcons";
+import { LogicEditor } from "./LogicEditor";
 
 type Patch = (patch: Partial<Field>) => void;
 
@@ -197,7 +198,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ["Esc", "Deselect"],
 ];
 
-export function Inspector({ field, onChange, questionCount, pageCount }: { field: Field | null; onChange: Patch; questionCount: number; pageCount: number }) {
+export function Inspector({ field, onChange, questionCount, pageCount, doc }: { field: Field | null; onChange: Patch; questionCount: number; pageCount: number; doc: FormDocument }) {
   if (!field) {
     return (
       <div className="flex flex-col gap-6 p-5">
@@ -243,6 +244,10 @@ export function Inspector({ field, onChange, questionCount, pageCount }: { field
       </div>
       <div className="flex flex-col gap-4">
         <FieldSettings field={field} onChange={onChange} />
+      </div>
+      <div className="flex flex-col gap-3 border-t border-border pt-5">
+        <h3 className="ae-label-sm text-text-muted uppercase">Logic</h3>
+        <LogicEditor doc={doc} target={{ fieldId: field.id }} value={field.visibleIf} onChange={(visibleIf) => onChange({ visibleIf })} />
       </div>
     </div>
   );

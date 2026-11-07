@@ -7,6 +7,7 @@ import { Alert, Button, cx, Progress } from "@/components/aiesec";
 import { PoweredByAiesec } from "@/components/brand/Logo";
 import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
+import { computeVisibility, visibleFields } from "@/lib/forms/logic";
 import { allFields, type FormDocument } from "@/lib/forms/schema";
 
 import { linkify } from "./linkify";
@@ -77,9 +78,12 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
 
   const persist = mode !== "preview" && Boolean(slug);
   const draftKey = `aiesec-forms:${slug}:${publishedRevision ?? 0}`;
-  const pages = doc.pages;
-  const page = pages[Math.min(pageIndex, pages.length - 1)];
-  const isLast = pageIndex >= pages.length - 1;
+  // Only pages and questions visible for the current answers (conditional logic, ADR-009).
+  const visibility = React.useMemo(() => computeVisibility(doc, answers), [doc, answers]);
+  const pages = React.useMemo(() => doc.pages.filter((item) => visibility.pages.has(item.id)).map((item) => ({ ...item, fields: item.fields.filter((field) => visibility.fields.has(field.id)) })), [doc, visibility]);
+  const currentIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
+  const page = pages[currentIndex] ?? { id: "none", title: "", description: "", visibleIf: null, fields: [] };
+  const isLast = currentIndex >= pages.length - 1;
   const multiPage = pages.length > 1;
 
   useEmbedResize(mode === "embed", rootRef);
@@ -143,7 +147,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
       const next = { ...current, [fieldId]: value };
       saveDraft(next, pageIndex);
       // Once a page has been checked, re-validate as people fix things.
-      if (checked.has(pageIndex)) {
+      if (checked.has(currentIndex)) {
         const field = page.fields.find((item) => item.id === fieldId);
         if (field) {
           const result = validateAnswers([field], next);
@@ -184,7 +188,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   };
 
   const next = () => {
-    if (validatePage(pageIndex)) goTo(pageIndex + 1);
+    if (validatePage(currentIndex)) goTo(currentIndex + 1);
   };
 
   const submit = async (event?: React.FormEvent) => {
@@ -194,14 +198,14 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
       setSendError("Wait for your files to finish uploading, then send.");
       return;
     }
-    if (!validatePage(pageIndex)) return;
+    if (!validatePage(currentIndex)) return;
     // Check every page; jump to the first one with problems.
-    const all = validateAnswers(allFields(doc), answers);
+    const all = validateAnswers(visibleFields(doc, answers), answers);
     if (!all.ok) {
       setErrors(all.errors);
       const firstBad = pages.findIndex((item) => item.fields.some((field) => all.errors[field.id]));
       setChecked(new Set(pages.map((_, index) => index)));
-      if (firstBad !== -1 && firstBad !== pageIndex) goTo(firstBad);
+      if (firstBad !== -1 && firstBad !== currentIndex) goTo(firstBad);
       focusSummary();
       return;
     }
@@ -329,7 +333,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
             </header>
 
             {multiPage && doc.settings.showProgressBar && (
-              <Progress label={`Page ${pageIndex + 1} of ${pages.length}`} value={pageIndex + 1} max={pages.length} showValue valueText={`${pageIndex + 1} of ${pages.length}`} tone="accent" />
+              <Progress label={`Page ${currentIndex + 1} of ${pages.length}`} value={currentIndex + 1} max={pages.length} showValue valueText={`${currentIndex + 1} of ${pages.length}`} tone="accent" />
             )}
 
             {pageErrors.length > 0 && (
@@ -383,8 +387,8 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
               )}
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                {pageIndex > 0 ? (
-                  <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(pageIndex - 1)}>
+                {currentIndex > 0 ? (
+                  <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(currentIndex - 1)}>
                     Back
                   </Button>
                 ) : (

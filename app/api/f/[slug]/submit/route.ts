@@ -8,8 +8,9 @@ import { baseUrl } from "@/lib/env";
 import { availability } from "@/lib/forms/availability";
 import { validateAnswers } from "@/lib/forms/fields";
 import { buildPayload } from "@/lib/forms/payload";
+import { visibleFields } from "@/lib/forms/logic";
 import { verifyRenderToken } from "@/lib/forms/render-token";
-import { allFields, parseDocument } from "@/lib/forms/schema";
+import { parseDocument } from "@/lib/forms/schema";
 import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
@@ -80,7 +81,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return jsonError(500, "server_error", "This form can't take responses right now.");
   }
 
-  const fields = allFields(doc);
+  // Only questions visible for these answers count (ADR-009); hidden ones are sent as null.
+  const fields = visibleFields(doc, body.answers);
   const validation = validateAnswers(fields, body.answers);
   if (!validation.ok) return jsonError(422, "invalid", "Some answers need fixing.", { fieldErrors: validation.errors });
 

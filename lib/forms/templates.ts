@@ -25,7 +25,7 @@ function options(...labels: string[]) {
 }
 
 function page(fields: Field[], title = "", description = ""): Page {
-  return { id: newId("p"), title, description, fields };
+  return { id: newId("p"), title, description, visibleIf: null, fields };
 }
 
 function document(title: string, description: string, pages: Page[], accent: FormDocument["theme"]["accent"] = "am"): FormDocument {

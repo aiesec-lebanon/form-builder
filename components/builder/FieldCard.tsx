@@ -13,6 +13,7 @@ import { isChoiceField, type Field } from "@/lib/forms/schema";
 import { FIELD_ICONS } from "./fieldIcons";
 import { FieldPreview } from "./FieldPreview";
 import { InlineText } from "./InlineText";
+import { LogicBadge } from "./LogicEditor";
 import { OptionsEditor } from "./OptionsEditor";
 import type { BuilderAction } from "./state";
 
@@ -28,11 +29,13 @@ type Props = {
   onDuplicate: (field: Field) => void;
   onDelete: (field: Field) => void;
   onOpenSettings: () => void;
+  /** Plain-language rule for conditional questions, e.g. "Programme is “GV”". */
+  logicLabel?: string | null;
 };
 
 const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-bg-subtle hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
 
-export const FieldCard = React.memo(function FieldCard({ field, number, pageId, selected, autoFocus, canMoveUp, canMoveDown, dispatch, onDuplicate, onDelete, onOpenSettings }: Props) {
+export const FieldCard = React.memo(function FieldCard({ field, number, pageId, selected, autoFocus, canMoveUp, canMoveDown, dispatch, onDuplicate, onDelete, onOpenSettings, logicLabel }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: field.id, data: { pageId } });
   const definition = definitionOf(field.type);
   const Icon = FIELD_ICONS[field.type];
@@ -93,6 +96,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
                 maxLength={2000}
                 className="ae-body-sm text-text-muted"
               />
+              <LogicBadge text={logicLabel} />
             </div>
             {choices.length > 1 ? (
               <Menu
@@ -185,6 +189,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
                 )}
               </p>
               {field.description && <p className="line-clamp-2 whitespace-pre-line ae-body-sm text-text-muted">{field.description}</p>}
+              <LogicBadge text={logicLabel} />
             </div>
             <span className="inline-flex shrink-0 items-center gap-1.5 ae-caption text-text-muted">
               <Icon size={14} aria-hidden="true" />

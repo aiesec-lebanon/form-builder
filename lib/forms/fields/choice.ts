@@ -49,7 +49,7 @@ export const singleChoice: FieldDefinition<FieldOf<"single_choice">> = {
   hint: "Pick one, all options visible",
   group: "choice",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "single_choice", label: "", description: "", required: false, options: defaultOptions(), allowOther: false, shuffle: false }),
+  create: (id) => ({ id, type: "single_choice", label: "", description: "", required: false, visibleIf: null, options: defaultOptions(), allowOther: false, shuffle: false }),
   validate: (field, raw) => {
     const choice = parseChoice(field, raw);
     if (choice === null) return ok(null);
@@ -74,6 +74,7 @@ export const multiChoice: FieldDefinition<FieldOf<"multi_choice">> = {
     label: "",
     description: "",
     required: false,
+    visibleIf: null,
     options: defaultOptions(),
     allowOther: false,
     shuffle: false,
@@ -100,7 +101,7 @@ export const dropdown: FieldDefinition<FieldOf<"dropdown">> = {
   hint: "Pick one from a long list",
   group: "choice",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "dropdown", label: "", description: "", required: false, options: defaultOptions() }),
+  create: (id) => ({ id, type: "dropdown", label: "", description: "", required: false, visibleIf: null, options: defaultOptions() }),
   validate: (field, raw) => {
     const choice = parseChoice(field, typeof raw === "string" ? { optionIds: raw ? [raw] : [] } : raw);
     if (choice === null) return ok(null);

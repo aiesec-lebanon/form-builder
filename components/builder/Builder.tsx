@@ -327,7 +327,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
               />
             </main>
             <aside aria-label="Question settings" className="hidden w-80 shrink-0 overflow-y-auto border-l border-border bg-bg lg:block">
-              <Inspector field={selected} onChange={(patch) => selected && dispatch({ type: "updateField", id: selected.id, patch })} questionCount={questionCount} pageCount={state.doc.pages.length} />
+              <Inspector field={selected} onChange={(patch) => selected && dispatch({ type: "updateField", id: selected.id, patch })} questionCount={questionCount} pageCount={state.doc.pages.length} doc={state.doc} />
             </aside>
           </>
         )}
@@ -368,7 +368,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
 
       <AddQuestionDialog open={adding !== null} onClose={() => setAdding(null)} onPick={(type) => addQuestion(type, adding?.pageId)} onAddPage={addPage} />
       <Sheet open={settingsOpen && selected !== null} onClose={() => setSettingsOpen(false)} title="Question settings">
-        {selected && <Inspector field={selected} onChange={(patch) => dispatch({ type: "updateField", id: selected.id, patch })} questionCount={questionCount} pageCount={state.doc.pages.length} />}
+        {selected && <Inspector field={selected} onChange={(patch) => dispatch({ type: "updateField", id: selected.id, patch })} questionCount={questionCount} pageCount={state.doc.pages.length} doc={state.doc} />}
       </Sheet>
       <PreviewDialog open={previewOpen} onClose={() => setPreviewOpen(false)} doc={state.doc} />
       <PublishProblemsDialog problems={problems} onClose={() => setProblems(null)} onFix={fix} />

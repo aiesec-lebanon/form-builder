@@ -26,7 +26,7 @@ export const date: FieldDefinition<FieldOf<"date">> = {
   hint: "Birthday, availability, deadline",
   group: "datetime",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "date", label: "", description: "", required: false, min: null, max: null }),
+  create: (id) => ({ id, type: "date", label: "", description: "", required: false, visibleIf: null, min: null, max: null }),
   validate: (field, raw) => {
     if (raw === undefined || raw === null || raw === "") return ok(null);
     if (typeof raw !== "string" || !isCalendarDate(raw)) return invalid("Enter a date, like 11 January 2027.");
@@ -45,7 +45,7 @@ export const time: FieldDefinition<FieldOf<"time">> = {
   hint: "Arrival, preferred slot",
   group: "datetime",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "time", label: "", description: "", required: false }),
+  create: (id) => ({ id, type: "time", label: "", description: "", required: false, visibleIf: null }),
   validate: (_field, raw) => {
     if (raw === undefined || raw === null || raw === "") return ok(null);
     const match = typeof raw === "string" ? raw.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/) : null;
@@ -68,7 +68,7 @@ export const linearScale: FieldDefinition<FieldOf<"linear_scale">> = {
   hint: "How likely, how satisfied",
   group: "scale",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "linear_scale", label: "", description: "", required: false, min: 1, max: 5, minLabel: "", maxLabel: "" }),
+  create: (id) => ({ id, type: "linear_scale", label: "", description: "", required: false, visibleIf: null, min: 1, max: 5, minLabel: "", maxLabel: "" }),
   validate: (field, raw) => {
     const value = readInteger(raw);
     if (value === null) return ok(null);
@@ -86,7 +86,7 @@ export const rating: FieldDefinition<FieldOf<"rating">> = {
   hint: "Stars out of 5",
   group: "scale",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "rating", label: "", description: "", required: false, max: 5 }),
+  create: (id) => ({ id, type: "rating", label: "", description: "", required: false, visibleIf: null, max: 5 }),
   validate: (field, raw) => {
     const value = readInteger(raw);
     if (value === null || value === 0) return ok(null);
@@ -179,7 +179,7 @@ export const fileUpload: FieldDefinition<FieldOf<"file_upload">> = {
   hint: "CV, photo, video. Saved to your Drive",
   group: "other",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "file_upload", label: "", description: "", required: false, maxFiles: 1, maxSizeMb: 10, accept: [] }),
+  create: (id) => ({ id, type: "file_upload", label: "", description: "", required: false, visibleIf: null, maxFiles: 1, maxSizeMb: 10, accept: [] }),
   validate: (field, raw) => {
     if (raw === undefined || raw === null) return ok(null);
     const parsed = z.array(fileAnswerSchema).max(10).safeParse(raw);
@@ -208,7 +208,7 @@ export const consent: FieldDefinition<FieldOf<"consent">> = {
   hint: "Terms, privacy, permission",
   group: "other",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "consent", label: "", description: "", required: true, checkboxLabel: "I agree" }),
+  create: (id) => ({ id, type: "consent", label: "", description: "", required: true, visibleIf: null, checkboxLabel: "I agree" }),
   validate: (_field, raw) => (raw === true ? ok(true) : ok(null)),
   requiredMessage: () => "Tick the box to continue.",
   toOutput: () => true,
@@ -221,7 +221,7 @@ export const statement: FieldDefinition<FieldOf<"statement">> = {
   hint: "A heading or instructions, no answer",
   group: "other",
   collectsAnswer: false,
-  create: (id) => ({ id, type: "statement", label: "", description: "", required: false }),
+  create: (id) => ({ id, type: "statement", label: "", description: "", required: false, visibleIf: null }),
   validate: () => ok(null),
   requiredMessage: () => "",
   toOutput: () => "",

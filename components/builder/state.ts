@@ -31,7 +31,7 @@ export type BuilderAction =
   | { type: "moveField"; id: string; toPageId: string; toIndex: number }
   | { type: "moveFieldBy"; id: string; delta: -1 | 1 }
   | { type: "addPage"; page: Page; afterPageId?: string | null }
-  | { type: "updatePage"; id: string; patch: Partial<Pick<Page, "title" | "description">> }
+  | { type: "updatePage"; id: string; patch: Partial<Pick<Page, "title" | "description" | "visibleIf">> }
   | { type: "removePage"; id: string }
   | { type: "undo" }
   | { type: "redo" };
@@ -66,6 +66,17 @@ function setFields(doc: FormDocument, pageIndex: number, fields: Field[]): FormD
   return withPages(
     doc,
     doc.pages.map((page, index) => (index === pageIndex ? { ...page, fields } : page)),
+  );
+}
+
+function clearConditionsOn(doc: FormDocument, fieldId: string): FormDocument {
+  return withPages(
+    doc,
+    doc.pages.map((page) => ({
+      ...page,
+      visibleIf: page.visibleIf?.fieldId === fieldId ? null : page.visibleIf,
+      fields: page.fields.map((field) => (field.visibleIf?.fieldId === fieldId ? ({ ...field, visibleIf: null } as Field) : field)),
+    })),
   );
 }
 
@@ -155,7 +166,9 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       const pageFields = doc.pages[at.pageIndex].fields;
       const neighbour = pageFields[at.fieldIndex + 1] ?? pageFields[at.fieldIndex - 1] ?? null;
       const fields = pageFields.filter((field) => field.id !== action.id);
-      return commit(state, setFields(doc, at.pageIndex, fields), null, {
+      // Rules that depended on the removed question no longer make sense.
+      const pruned = clearConditionsOn(setFields(doc, at.pageIndex, fields), action.id);
+      return commit(state, pruned, null, {
         selectedId: state.selectedId === action.id ? (neighbour?.id ?? null) : state.selectedId,
       });
     }
@@ -257,5 +270,5 @@ export const actions = {
     ) as Field;
     return { type: "duplicateField", id: field.id, copy };
   },
-  addPage: (afterPageId?: string | null): BuilderAction => ({ type: "addPage", page: { id: newId("p"), title: "", description: "", fields: [] }, afterPageId }),
+  addPage: (afterPageId?: string | null): BuilderAction => ({ type: "addPage", page: { id: newId("p"), title: "", description: "", visibleIf: null, fields: [] }, afterPageId }),
 };

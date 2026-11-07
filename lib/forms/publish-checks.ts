@@ -1,4 +1,5 @@
 import { collectsAnswer } from "./fields";
+import { conditionProblem } from "./logic";
 import { allFields, isChoiceField, type FormDocument } from "./schema";
 
 // Blocking checks before publishing (spec §8). Messages say how to fix.
@@ -44,6 +45,18 @@ export function publishProblems(doc: FormDocument, context: { hasPrimaryDestinat
     if (field.type === "date" && field.min && field.max && field.min > field.max) {
       add({ id: `date-${field.id}`, message: `${where}: the earliest date is after the latest date.`, tab: "questions", fieldId: field.id });
     }
+  });
+
+  // Conditional logic must point at earlier questions and existing options.
+  fields.forEach((field, index) => {
+    if (!field.visibleIf) return;
+    const problem = conditionProblem(doc, field.visibleIf, { fieldId: field.id });
+    if (problem) add({ id: `logic-${field.id}`, message: `Question ${index + 1} ${problem}. Fix or remove its rule.`, tab: "questions", fieldId: field.id });
+  });
+  doc.pages.forEach((page, index) => {
+    if (!page.visibleIf) return;
+    const problem = conditionProblem(doc, page.visibleIf, { pageId: page.id });
+    if (problem) add({ id: `logic-${page.id}`, message: `Page ${index + 1} ${problem}. Fix or remove its rule.`, tab: "questions" });
   });
 
   if (!context.hasPrimaryDestination) add({ id: "destination", message: "Choose where responses should go.", tab: "connect" });
