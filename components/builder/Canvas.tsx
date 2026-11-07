@@ -64,7 +64,8 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
   const multiPage = doc.pages.length > 1;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-6 sm:px-6 lg:py-10" onPointerDown={(event) => {
+    // Extra bottom space on phones so the floating "Add question" button never covers content.
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-6 pb-28 sm:px-6 lg:py-10" onPointerDown={(event) => {
       // A click on empty canvas space clears the selection.
       if (event.target === event.currentTarget) dispatch({ type: "select", id: null });
     }}>

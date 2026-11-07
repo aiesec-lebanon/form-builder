@@ -178,6 +178,20 @@
     font: inherit;
     color: inherit;
   }
+  /* Neutral buttons: our own buttons style themselves; design-system buttons
+     (components layer) always win over this base layer. */
+  button, [type="button"], [type="submit"], [type="reset"] {
+    background-color: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  summary {
+    cursor: pointer;
+  }
   :where(a, button, [role="button"], [tabindex], summary):focus-visible {
     outline: 2px solid var(--ae-focus);
     outline-offset: 2px;
