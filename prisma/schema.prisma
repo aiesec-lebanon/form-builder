@@ -1,0 +1,189 @@
+// AIESEC Forms data model. Design: .10x/specs/2026-11-08-form-builder-mvp-design.md §6, ADR-005.
+//
+// Response data is never stored here (ADR-001): only form definitions,
+// destination configuration (secrets encrypted), counters and delivery health.
+//
+// Connection URLs live in prisma.config.ts (Prisma 7); the runtime connection
+// comes from the pg driver adapter in lib/db.ts. RLS, privilege revokes, CHECK
+// constraints and partial unique indexes are hand-written in the migration SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  aiesecPersonId BigInt   @unique @map("aiesec_person_id")
+  fullName       String   @map("full_name")
+  /// Lower-cased. Used to match collaborator invites.
+  email          String?
+  photoUrl       String?  @map("photo_url")
+  officeId       BigInt?  @map("office_id")
+  officeName     String?  @map("office_name")
+  positionTitle  String?  @map("position_title")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSignInAt   DateTime @default(now()) @map("last_sign_in_at") @db.Timestamptz(6)
+
+  ownedForms          Form[]             @relation("FormOwner")
+  collaborations      FormCollaborator[] @relation("CollaboratorUser")
+  collaboratorsAdded  FormCollaborator[] @relation("CollaboratorAddedBy")
+  invitesSent         FormInvite[]
+  googleConnections   GoogleConnection[]
+  destinationsCreated Destination[]
+  auditEvents         AuditEvent[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Form {
+  id                 String    @id @default(uuid()) @db.Uuid
+  ownerId            String    @map("owner_id") @db.Uuid
+  /// Mirrors draft.title for listing without parsing JSON.
+  title              String
+  slug               String    @unique
+  /// FormDocument being edited (lib/forms/schema.ts).
+  draft              Json
+  /// Snapshot served to respondents; null until first publish.
+  published          Json?
+  /// Increments on every draft save (optimistic concurrency).
+  revision           Int       @default(1)
+  publishedRevision  Int?      @map("published_revision")
+  publishedAt        DateTime? @map("published_at") @db.Timestamptz(6)
+  acceptingResponses Boolean   @default(true) @map("accepting_responses")
+  responseCount      Int       @default(0) @map("response_count")
+  lastResponseAt     DateTime? @map("last_response_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Soft delete ("trash"); purged after 30 days by the cleanup cron.
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  owner         User               @relation("FormOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  collaborators FormCollaborator[]
+  invites       FormInvite[]
+  destinations  Destination[]
+
+  @@index([ownerId, deletedAt])
+  @@index([deletedAt])
+  @@map("forms")
+}
+
+model FormCollaborator {
+  formId    String   @map("form_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("editor")
+  addedById String?  @map("added_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  form    Form  @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user    User  @relation("CollaboratorUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy User? @relation("CollaboratorAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([formId, userId])
+  @@index([userId])
+  @@map("form_collaborators")
+}
+
+model FormInvite {
+  id          String   @id @default(uuid()) @db.Uuid
+  formId      String   @map("form_id") @db.Uuid
+  /// Lower-cased.
+  email       String
+  invitedById String?  @map("invited_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  form      Form  @relation(fields: [formId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([formId, email])
+  @@index([email])
+  @@map("form_invites")
+}
+
+model GoogleConnection {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  googleSub            String    @map("google_sub")
+  email                String
+  /// AES-256-GCM (lib/crypto.ts).
+  refreshTokenEnc      String    @map("refresh_token_enc")
+  accessTokenEnc       String?   @map("access_token_enc")
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  scopes               String
+  /// active | revoked
+  status               String    @default("active")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destinations Destination[]
+
+  @@unique([userId, googleSub])
+  @@map("google_connections")
+}
+
+model Destination {
+  id                  String    @id @default(uuid()) @db.Uuid
+  formId              String    @map("form_id") @db.Uuid
+  /// google_sheets | google_drive | webhook | supabase | postgres
+  type                String
+  /// primary | secondary | files
+  role                String
+  name                String
+  /// Non-secret settings (spreadsheet id, column map, URL, table...).
+  config              Json      @default("{}")
+  /// AES-256-GCM JSON of secrets (webhook secret, keys, connection string).
+  secretsEnc          String?   @map("secrets_enc")
+  googleConnectionId  String?   @map("google_connection_id") @db.Uuid
+  enabled             Boolean   @default(true)
+  lastSuccessAt       DateTime? @map("last_success_at") @db.Timestamptz(6)
+  lastFailureAt       DateTime? @map("last_failure_at") @db.Timestamptz(6)
+  /// Sanitized message; never contains response data.
+  lastError           String?   @map("last_error")
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  createdById         String?   @map("created_by_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  form             Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  googleConnection GoogleConnection? @relation(fields: [googleConnectionId], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([formId])
+  @@index([googleConnectionId])
+  @@map("destinations")
+}
+
+model AuditEvent {
+  id         BigInt   @id @default(autoincrement())
+  type       String
+  actorId    String?  @map("actor_id") @db.Uuid
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  /// Allow-listed per event type (lib/audit.ts). Never answers or secrets.
+  metadata   Json?
+  /// HMAC of the client IP; raw IPs are never stored.
+  ipHash     String?  @map("ip_hash")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@index([actorId])
+  @@map("audit_events")
+}
+
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int
+
+  @@index([windowStart])
+  @@map("rate_limits")
+}
