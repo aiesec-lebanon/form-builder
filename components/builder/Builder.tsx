@@ -171,7 +171,11 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         dispatch({ type: "moveFieldBy", id: selected.id, delta: event.key === "ArrowUp" ? -1 : 1 });
         return;
       }
-      if (isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target)) {
+        // Esc leaves the text field (the question stays selected), so shortcuts work again.
+        if (event.key === "Escape") (event.target as HTMLElement).blur();
+        return;
+      }
       if (event.key === "/") {
         event.preventDefault();
         setAdding({ pageId: null });
