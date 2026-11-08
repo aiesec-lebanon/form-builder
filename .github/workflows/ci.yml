@@ -34,9 +34,9 @@ jobs:
       AIESEC_REDIRECT_URI: http://localhost:3000/api/auth/callback
       GIS_GRAPHQL_URL: https://gis.example.test/graphql
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
