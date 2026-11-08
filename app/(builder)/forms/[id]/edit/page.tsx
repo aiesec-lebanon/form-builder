@@ -19,7 +19,7 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const TABS: BuilderTab[] = ["questions", "connect", "settings"];
+const TABS: BuilderTab[] = ["questions", "connect", "settings", "messages"];
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -42,10 +42,16 @@ export default async function EditFormPage({ params, searchParams }: Props) {
     doc = blankDocument(form.title);
   }
 
-  const [destinations, googleAccounts, collaboration] = await Promise.all([
+  const [destinations, googleAccounts, collaboration, messages] = await Promise.all([
     listSummaries(id),
     db.googleConnection.findMany({ where: { userId: user.id, status: "active" }, select: { id: true, email: true, rootFolderId: true }, orderBy: { createdAt: "asc" } }),
     loadCollaboration(id, user.id),
+    db.formMessage.findMany({
+      where: { formId: id },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: { id: true, senderName: true, senderEmail: true, subject: true, body: true, verified: true, createdAt: true, readAt: true },
+    }),
   ]);
   const tab = (await searchParams).tab;
   const initialTab = TABS.includes(tab as BuilderTab) ? (tab as BuilderTab) : "questions";
@@ -73,6 +79,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       googlePicker={Boolean(googlePickerConfig())}
       googleAccounts={googleAccounts}
       initialTab={initialTab}
+      messages={messages.map((message) => ({ ...message, createdAt: message.createdAt.toISOString(), readAt: message.readAt?.toISOString() ?? null }))}
       collaborators={collaboration ? <CollaboratorsPanel formId={form.id} initial={collaboration} /> : null}
     />
   );

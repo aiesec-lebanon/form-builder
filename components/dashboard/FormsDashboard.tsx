@@ -23,6 +23,8 @@ export type DashboardForm = {
   isOwner: boolean;
   ownerName: string;
   failing: boolean;
+  /** Unread "Contact form owner" messages. */
+  unreadMessages: number;
 };
 
 type Props = { forms: DashboardForm[]; view: "active" | "trash"; publicBaseUrl: string; firstName: string };

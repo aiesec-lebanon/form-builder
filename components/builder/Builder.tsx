@@ -9,6 +9,7 @@ import { loadLatest } from "@/actions/builder";
 import { publishForm } from "@/actions/publish";
 import type { DestinationSummary } from "@/lib/destinations/types";
 import { collectsAnswer } from "@/lib/forms/fields";
+import type { MessageSummary } from "@/lib/forms/messages";
 import type { PublishProblem } from "@/lib/forms/publish-checks";
 import { allFields, type FieldType, type FormDocument } from "@/lib/forms/schema";
 
@@ -21,6 +22,7 @@ import { Palette } from "./Palette";
 import { PreviewDialog } from "./PreviewDialog";
 import { PublishProblemsDialog } from "./PublishProblemsDialog";
 import { ResponseRules } from "./ResponseRules";
+import { MessagesPanel } from "./MessagesPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { ShareDialog } from "./ShareDialog";
 import { Sheet } from "./Sheet";
@@ -52,6 +54,8 @@ type Props = {
   /** Owners can choose existing Sheets and folders with Google Picker. */
   googlePicker: boolean;
   googleAccounts: GoogleAccount[];
+  /** "Contact form owner" messages, newest first (ADR-017). */
+  messages: MessageSummary[];
   initialTab: BuilderTab;
   collaborators?: React.ReactNode;
 };
@@ -61,7 +65,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return Boolean(element && (element.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)));
 }
 
-export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googlePicker, googleAccounts, initialTab, collaborators }: Props) {
+export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googlePicker, googleAccounts, messages: initialMessages, initialTab, collaborators }: Props) {
   const toast = useToast();
   const pathname = usePathname();
   const [state, dispatch] = React.useReducer(builderReducer, initialDoc, initialState);
@@ -252,6 +256,9 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
     setRevision(result.data.revision);
   };
 
+  const [messages, setMessages] = React.useState(initialMessages);
+  const unreadMessages = messages.filter((message) => !message.readAt).length;
+
   const publishLabel = !published ? "Publish" : upToDate ? "Published" : "Publish changes";
   const panelClass = "relative min-w-0 flex-1 overflow-y-auto bg-bg-subtle dark:bg-bg";
 
@@ -274,6 +281,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         publishDisabled={upToDate || publishing}
         publishing={publishing}
         connectAttention={connectAttention}
+        unreadMessages={unreadMessages}
       />
 
       {(autosave.status === "conflict" || autosave.status === "error" || backup) && (
@@ -338,6 +346,11 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         {tab === "connect" && (
           <main id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" className={panelClass}>
             <ConnectPanel formId={form.id} destinations={destinations} onDestinations={setDestinations} googleConfigured={googleConfigured} googlePicker={googlePicker} googleAccounts={googleAccounts} hasFileQuestions={hasFileQuestions} doc={state.doc} />
+          </main>
+        )}
+        {tab === "messages" && (
+          <main id="panel-messages" role="tabpanel" aria-labelledby="tab-messages" className={panelClass}>
+            <MessagesPanel formId={form.id} messages={messages} onMessages={setMessages} />
           </main>
         )}
         {tab === "settings" && (

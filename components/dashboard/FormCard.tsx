@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, ExternalLink, Link2, MoreHorizontal, PencilLine, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import { Copy, ExternalLink, Link2, Mail, MoreHorizontal, PencilLine, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
 import * as React from "react";
 
 import { Card, useToast } from "@/components/aiesec";
@@ -29,6 +29,7 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
     ? [{ label: "Restore", icon: <RotateCcw size={16} />, onSelect: () => run(() => restoreForm(form.id), () => toast.show({ title: "Form restored" })) }]
     : [
         { label: "Edit", icon: <PencilLine size={16} />, href: `/forms/${form.id}/edit` },
+        { label: form.unreadMessages > 0 ? `Messages (${form.unreadMessages} new)` : "Messages", icon: <Mail size={16} />, href: `/forms/${form.id}/edit?tab=messages` },
         ...(form.status !== "draft"
           ? [
               {
@@ -93,6 +94,12 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
             <span className="ae-caption text-text-muted">
               {plural(form.responseCount, "response")}
               {form.completionRate !== null && <span title="Views that ended in a response"> · {form.completionRate}% complete</span>}
+            </span>
+          )}
+          {form.unreadMessages > 0 && (
+            <span className="inline-flex items-center gap-1 ae-caption font-bold text-primary-text">
+              <Mail size={14} aria-hidden="true" />
+              {plural(form.unreadMessages, "new message")}
             </span>
           )}
           {form.failing && (

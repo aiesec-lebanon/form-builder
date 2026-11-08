@@ -1,16 +1,13 @@
 "use client";
 
-import { Mail } from "lucide-react";
 import * as React from "react";
 
-import { Button, Modal, Spinner } from "@/components/aiesec";
 import { AiesecLogo } from "@/components/brand/Logo";
 
-// The public form's footer, after Google Forms': safety note, who made the
-// content, contact, terms, privacy, report, and the AIESEC logo (never the
-// "Powered by AIESEC" mark).
+import { ContactOwnerDialog, type Sender } from "./ContactOwner";
 
-type Contact = { status: "loading" } | { status: "ready"; name: string; email: string | null } | { status: "error"; message: string };
+// The public form's footer, after Google Forms': safety note, contact, terms,
+// privacy, report, and the AIESEC logo (never the "Powered by AIESEC" mark).
 
 const linkClass = "ae-link cursor-pointer border-0 bg-transparent p-0 whitespace-nowrap";
 
@@ -22,25 +19,16 @@ function Separator() {
   );
 }
 
-export function FormFooter({ slug, formTitle }: { /** Absent in the builder's preview: contact and report are shown but inactive. */ slug?: string; formTitle: string }) {
-  const [contact, setContact] = React.useState<Contact | null>(null);
-  const [copied, setCopied] = React.useState(false);
+type Props = {
+  /** Absent in the builder's preview: contact and report are shown but inactive. */
+  slug?: string;
+  /** Who's answering, when they signed in with AIESEC. */
+  sender?: Sender | null;
+  turnstileSiteKey?: string | null;
+};
 
-  const openContact = async () => {
-    setCopied(false);
-    setContact({ status: "loading" });
-    try {
-      const response = await fetch(`/api/f/${slug}/contact`, { cache: "no-store" });
-      const body = (await response.json().catch(() => ({}))) as { name?: string; email?: string | null; message?: string };
-      setContact(
-        response.ok && body.name ? { status: "ready", name: body.name, email: body.email ?? null } : { status: "error", message: body.message ?? "Couldn't load the owner's details. Try again." },
-      );
-    } catch {
-      setContact({ status: "error", message: "Couldn't load the owner's details. Check your connection and try again." });
-    }
-  };
-
-  const mailto = contact?.status === "ready" && contact.email ? `mailto:${contact.email}?subject=${encodeURIComponent(`About your form “${formTitle || "Untitled form"}”`)}` : null;
+export function FormFooter({ slug, sender = null, turnstileSiteKey = null }: Props) {
+  const [contactOpen, setContactOpen] = React.useState(false);
 
   return (
     <footer className="flex flex-col items-center gap-3 border-t border-border pt-6 text-center ae-caption text-text-muted">
@@ -48,7 +36,7 @@ export function FormFooter({ slug, formTitle }: { /** Absent in the builder's pr
       <div className="flex flex-col gap-1">
         <p className="m-0">
           {slug ? (
-            <button type="button" className={linkClass} onClick={openContact}>
+            <button type="button" className={linkClass} onClick={() => setContactOpen(true)}>
               Contact form owner
             </button>
           ) : (
@@ -78,60 +66,7 @@ export function FormFooter({ slug, formTitle }: { /** Absent in the builder's pr
         <AiesecLogo height={18} />
       </a>
 
-      {slug && (
-        <Modal
-          open={contact !== null}
-          onClose={() => setContact(null)}
-          title="Contact form owner"
-          size="sm"
-          footer={
-            <>
-              <Button onClick={() => setContact(null)} data-autofocus={!mailto || undefined}>
-                Close
-              </Button>
-              {mailto && (
-                <Button as="a" href={mailto} variant="primary" iconStart={<Mail size={18} aria-hidden="true" />}>
-                  Send email
-                </Button>
-              )}
-            </>
-          }
-        >
-          {contact?.status === "loading" && (
-            <p className="flex items-center gap-2 ae-body text-text-muted">
-              <Spinner size="sm" label="" /> Loading…
-            </p>
-          )}
-          {contact?.status === "error" && <p className="ae-body text-danger-text">{contact.message}</p>}
-          {contact?.status === "ready" && (
-            <div className="flex flex-col gap-3 text-left">
-              <p className="ae-body">
-                <strong>{contact.name}</strong> made this form.
-              </p>
-              {contact.email ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="break-all ae-body text-text">{contact.email}</span>
-                  <Button
-                    size="sm"
-                    variant="tertiary"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(contact.email ?? "").then(
-                        () => setCopied(true),
-                        () => setCopied(false),
-                      );
-                    }}
-                  >
-                    {copied ? "Copied" : "Copy email"}
-                  </Button>
-                </div>
-              ) : (
-                <p className="ae-body text-text-muted">They haven&apos;t shared an email address.</p>
-              )}
-              <p className="ae-body-sm text-text-muted">Never send passwords or payment details by email.</p>
-            </div>
-          )}
-        </Modal>
-      )}
+      {slug && <ContactOwnerDialog slug={slug} open={contactOpen} onClose={() => setContactOpen(false)} sender={sender} turnstileSiteKey={turnstileSiteKey} />}
     </footer>
   );
 }

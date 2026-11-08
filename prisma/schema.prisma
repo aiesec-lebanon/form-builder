@@ -76,6 +76,7 @@ model Form {
   destinations  Destination[]
   respondents   FormRespondent[]
   reports       FormReport[]
+  messages      FormMessage[]
 
   @@index([ownerId, deletedAt])
   @@index([deletedAt])
@@ -231,4 +232,27 @@ model FormReport {
 
   @@index([reviewedAt, createdAt])
   @@map("form_reports")
+}
+
+/// A message to the form's owner from "Contact form owner" (ADR-017). The
+/// owner's email is never shown; the sender's name and email come with the
+/// message so the owner can reply. Deleted with the form, or after a year.
+model FormMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  formId      String    @map("form_id") @db.Uuid
+  senderName  String    @map("sender_name")
+  senderEmail String    @map("sender_email")
+  subject     String
+  body        String
+  /// The name and email came from an AIESEC sign-in, not typed in.
+  verified    Boolean   @default(false)
+  ipHash      String?   @map("ip_hash")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+  @@index([createdAt])
+  @@map("form_messages")
 }

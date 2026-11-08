@@ -10,12 +10,13 @@ import { useTabIndicator } from "@/components/app/useTabIndicator";
 import { SaveStatus } from "./SaveStatus";
 import type { SaveStatus as Status } from "./useAutosave";
 
-export type BuilderTab = "questions" | "connect" | "settings";
+export type BuilderTab = "questions" | "connect" | "settings" | "messages";
 
 const TABS: Array<{ id: BuilderTab; label: string }> = [
   { id: "questions", label: "Questions" },
   { id: "connect", label: "Connect" },
   { id: "settings", label: "Settings" },
+  { id: "messages", label: "Messages" },
 ];
 
 type Props = {
@@ -34,12 +35,13 @@ type Props = {
   publishDisabled: boolean;
   publishing: boolean;
   connectAttention: boolean;
+  unreadMessages: number;
 };
 
 const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-fill hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
 
 export function TopBar(props: Props) {
-  const { title, status, tab, onTab, canUndo, canRedo, onUndo, onRedo, onPreview, onShare, onPublish, publishLabel, publishDisabled, publishing, connectAttention } = props;
+  const { title, status, tab, onTab, canUndo, canRedo, onUndo, onRedo, onPreview, onShare, onPublish, publishLabel, publishDisabled, publishing, connectAttention, unreadMessages } = props;
   const { register, indicatorRef } = useTabIndicator(tab);
 
   const tabs = (
@@ -68,6 +70,12 @@ export function TopBar(props: Props) {
           {item.label}
           {item.id === "connect" && connectAttention && (
             <span className="inline-block size-2 rounded-full bg-danger" aria-label="needs attention" />
+          )}
+          {item.id === "messages" && unreadMessages > 0 && (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 ae-caption font-bold text-on-primary">
+              {unreadMessages > 99 ? "99+" : unreadMessages}
+              <span className="sr-only"> unread</span>
+            </span>
           )}
         </button>
       ))}

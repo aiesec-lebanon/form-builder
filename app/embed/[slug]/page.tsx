@@ -40,7 +40,7 @@ export default async function EmbedPage({ params, searchParams }: Props) {
   if (doc.settings.access.mode === "aiesec" && open.open) {
     return (
       <main>
-        <RespondentGate doc={doc} slug={slug} reason="embed" />
+        <RespondentGate doc={doc} slug={slug} reason="embed" turnstileSiteKey={turnstileSiteKey()} />
       </main>
     );
   }

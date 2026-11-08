@@ -5,7 +5,10 @@ const m = vi.hoisted(() => ({
   db: {
     form: { findUnique: vi.fn(), updateMany: vi.fn() },
     formReport: { create: vi.fn(), updateMany: vi.fn() },
+    formMessage: { create: vi.fn() },
   },
+  currentRespondent: vi.fn(),
+  verifyTurnstile: vi.fn(),
   rateLimit: vi.fn(),
   recordAudit: vi.fn(),
   getCurrentUser: vi.fn(),
@@ -16,6 +19,8 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: m.rateLimit }));
 vi.mock("@/lib/audit", () => ({ recordAudit: m.recordAudit }));
 vi.mock("@/lib/auth/current-user", () => ({ getCurrentUser: m.getCurrentUser }));
 vi.mock("next/cache", () => ({ revalidatePath: m.revalidatePath }));
+vi.mock("@/lib/forms/respondents", () => ({ currentRespondent: m.currentRespondent }));
+vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: m.verifyTurnstile }));
 
 const report = await import("@/app/api/f/[slug]/report/route");
 const contact = await import("@/app/api/f/[slug]/contact/route");
@@ -33,6 +38,8 @@ function post(body: unknown, headers: Record<string, string> = {}) {
 beforeEach(() => {
   m.rateLimit.mockResolvedValue({ allowed: true, remaining: 5 });
   m.db.form.findUnique.mockResolvedValue(live);
+  m.currentRespondent.mockResolvedValue(null);
+  m.verifyTurnstile.mockResolvedValue({ ok: true });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -77,22 +84,49 @@ describe("reporting a form", () => {
 });
 
 describe("contacting the owner", () => {
-  const get = () => contact.GET(new NextRequest(`${ORIGIN}/api/f/recruitment/contact`, { headers: { "x-forwarded-for": "203.0.113.9" } }), params);
+  const message = { name: "Lina Haddad", email: "lina@example.org", subject: "Deadline", message: "Can I still apply next week?" };
+  const send = (body: unknown, headers: Record<string, string> = {}) =>
+    contact.POST(new NextRequest(`${ORIGIN}/api/f/recruitment/contact`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "x-forwarded-for": "203.0.113.9", ...headers }, body: JSON.stringify(body) }), params);
 
-  it("gives the owner's name and email, uncached", async () => {
-    m.db.form.findUnique.mockResolvedValueOnce({ published: {}, deletedAt: null, owner: { fullName: "Lina Haddad", email: "lina@aiesec.net" } });
-    const response = await get();
-    expect(await response.json()).toMatchObject({ name: "Lina Haddad", email: "lina@aiesec.net" });
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    m.db.form.findUnique.mockResolvedValueOnce({ published: {}, deletedAt: null, owner: { fullName: "Lina Haddad", email: null } });
-    expect(await (await get()).json()).toMatchObject({ email: null });
+  it("stores the message for the owner, never revealing their email", async () => {
+    const response = await send(message);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, sent: true });
+    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ formId: "form-1", senderName: "Lina Haddad", senderEmail: "lina@example.org", subject: "Deadline", body: "Can I still apply next week?", verified: false });
+    expect(m.db.formMessage.create.mock.calls[0][0].data.ipHash).not.toContain("203.0.113.9");
   });
 
-  it("refuses unpublished forms and floods", async () => {
-    m.db.form.findUnique.mockResolvedValueOnce({ published: null, deletedAt: null, owner: { fullName: "x", email: null } });
-    expect((await get()).status).toBe(404);
+  it("uses the AIESEC sign-in for name and email when there is one", async () => {
+    m.currentRespondent.mockResolvedValueOnce({ aiesecId: "5099966", name: "Rami Khoury", email: "rami@aiesec.net", member: true, source: "respondent" });
+    expect((await send({ subject: "Hi", message: "Question about the form" })).status).toBe(200);
+    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ senderName: "Rami Khoury", senderEmail: "rami@aiesec.net", verified: true });
+  });
+
+  it("explains what to fix, field by field", async () => {
+    const response = await send({ name: " ", email: "nope", subject: "", message: "" });
+    expect(response.status).toBe(422);
+    expect((await response.json()).fieldErrors).toEqual({ name: "Enter your name.", email: "Enter an email like name@example.com.", subject: "Add a subject.", message: "Write your message." });
+    expect((await (await send({ ...message, subject: "x".repeat(151) })).json()).fieldErrors).toEqual({ subject: expect.stringContaining("150") });
+    expect(m.db.formMessage.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses other sites, missing forms, floods and failed bot checks", async () => {
+    expect((await send(message, { origin: "https://evil.example" })).status).toBe(403);
+    expect((await contact.POST(new NextRequest(`${ORIGIN}/api/f/recruitment/contact`, { method: "POST", headers: { origin: ORIGIN }, body: "{" }), params)).status).toBe(400);
+    m.db.form.findUnique.mockResolvedValueOnce({ ...live, published: null });
+    expect((await send(message)).status).toBe(404);
     m.rateLimit.mockResolvedValueOnce({ allowed: false, remaining: 0 });
-    expect((await get()).status).toBe(429);
+    expect((await send(message)).status).toBe(429);
+    m.verifyTurnstile.mockResolvedValueOnce({ ok: false, reason: "invalid" });
+    const bot = await send(message);
+    expect(bot.status).toBe(403);
+    expect(await bot.json()).toMatchObject({ error: "bot_check" });
+    expect(m.db.formMessage.create).not.toHaveBeenCalled();
+  });
+
+  it("quietly drops bot messages", async () => {
+    expect((await send({ ...message, website: "http://spam" })).status).toBe(200);
+    expect(m.db.formMessage.create).not.toHaveBeenCalled();
   });
 });
 

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   db: {
     form: { findUnique: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
     auditEvent: { create: vi.fn(), deleteMany: vi.fn() },
+    formMessage: { deleteMany: vi.fn() },
     googleConnection: { upsert: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -381,12 +382,14 @@ describe("housekeeping and health", () => {
     mocks.pruneRateLimits.mockResolvedValueOnce(3);
     mocks.db.form.deleteMany.mockResolvedValueOnce({ count: 2 });
     mocks.db.auditEvent.deleteMany.mockResolvedValueOnce({ count: 1 });
+    mocks.db.formMessage.deleteMany.mockResolvedValueOnce({ count: 4 });
     mocks.cleanOrphanedUploads.mockResolvedValueOnce({ folders: 2, trashed: 5, failedFolders: 0 });
     const response = await cron.GET(new NextRequest(`${ORIGIN}/api/cron/cleanup`, { headers: { authorization: "Bearer test-cron-secret" } }));
-    expect(await response.json()).toEqual({ ok: true, rateLimits: 3, trashedForms: 2, auditEvents: 1, uploads: { folders: 2, trashed: 5, failedFolders: 0 } });
+    expect(await response.json()).toEqual({ ok: true, rateLimits: 3, trashedForms: 2, auditEvents: 1, messages: 4, uploads: { folders: 2, trashed: 5, failedFolders: 0 } });
     mocks.pruneRateLimits.mockResolvedValueOnce(0);
     mocks.db.form.deleteMany.mockResolvedValueOnce({ count: 0 });
     mocks.db.auditEvent.deleteMany.mockResolvedValueOnce({ count: 0 });
+    mocks.db.formMessage.deleteMany.mockResolvedValueOnce({ count: 0 });
     mocks.cleanOrphanedUploads.mockRejectedValueOnce(new Error("drive down"));
     const degraded = await cron.GET(new NextRequest(`${ORIGIN}/api/cron/cleanup`, { headers: { authorization: "Bearer test-cron-secret" } }));
     expect(await degraded.json()).toMatchObject({ uploads: { folders: 0, trashed: 0, failedFolders: 0 } });

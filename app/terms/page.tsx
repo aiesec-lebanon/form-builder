@@ -41,7 +41,7 @@ export default function TermsPage() {
             <li>Tell people what you collect and why, and only ask for what you need.</li>
             <li>Don&apos;t ask for passwords, don&apos;t pretend to be someone else, and don&apos;t use forms for spam, harassment or anything harmful or illegal.</li>
             <li>You&apos;re responsible for the destinations you connect (Google Sheets, Drive, webhooks, databases) and for keeping the answers there safe.</li>
-            <li>People who fill in your form can see your name and email through &ldquo;Contact form owner&rdquo;.</li>
+            <li>People can message you through &ldquo;Contact form owner&rdquo;. You&apos;ll find messages in the form&apos;s Messages tab; your email stays private until you reply.</li>
           </ul>
         </section>
 

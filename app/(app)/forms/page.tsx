@@ -37,6 +37,7 @@ export default async function FormsPage({ searchParams }: Props) {
       ownerId: true,
       owner: { select: { fullName: true } },
       destinations: { where: { role: "primary" }, select: { consecutiveFailures: true } },
+      _count: { select: { messages: { where: { readAt: null } } } },
     },
   });
 
@@ -52,6 +53,7 @@ export default async function FormsPage({ searchParams }: Props) {
     isOwner: form.ownerId === user.id,
     ownerName: form.owner.fullName,
     failing: form.destinations.some((destination) => destination.consecutiveFailures > 0),
+    unreadMessages: form._count.messages,
   }));
 
   return <FormsDashboard forms={items} view={view} publicBaseUrl={baseUrl()} firstName={user.fullName.split(" ")[0] ?? ""} />;

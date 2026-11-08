@@ -32,6 +32,7 @@ export default function PrivacyPage() {
             <li>Destination settings. Passwords, keys and tokens are encrypted.</li>
             <li>How many responses a form received and whether deliveries are working, never the answers.</li>
             <li>An activity log of sign-ins and changes, with the browser name and a one-way hash of the IP address.</li>
+            <li>Messages sent with &ldquo;Contact form owner&rdquo; (deleted after a year) and reports about forms.</li>
           </ul>
         </section>
 
@@ -69,7 +70,7 @@ export default function PrivacyPage() {
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">Contacting a form&apos;s owner and reporting a form</h2>
           <p className="ae-body">
-            Every form has &ldquo;Contact form owner&rdquo;, which shows the owner&apos;s name and AIESEC email to whoever clicks it. &ldquo;Report&rdquo; sends us the reason you choose, any details you add and, if you give it, your email so we can follow up, with a one-way hash of your IP address to stop abuse. The platform team uses reports only to review the form.
+            &ldquo;Contact form owner&rdquo; sends the form&apos;s owner and editors your subject and message, with your name and email so they can reply (taken from your AIESEC sign-in when you&apos;re signed in). The owner&apos;s own email isn&apos;t shown. We keep messages for the form&apos;s team for up to a year, or until they delete them. &ldquo;Report&rdquo; sends us the reason you choose, any details you add and, if you give it, your email so we can follow up. Both keep a one-way hash of your IP address to stop abuse. The platform team uses reports only to review the form.
           </p>
         </section>
 
