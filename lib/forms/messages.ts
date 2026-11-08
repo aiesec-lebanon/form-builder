@@ -27,11 +27,8 @@ const TOO_LONG: Record<MessageField, string> = {
   message: `Keep the message to ${MESSAGE_LIMITS.body} characters.`,
 };
 
-/**
- * Checks a message. Name and email are only needed when the sender isn't
- * signed in with AIESEC (then they come from the sign-in instead).
- */
-export function validateMessage(raw: unknown, known: { name: boolean; email: boolean }): { ok: true; data: MessageInput } | { ok: false; fieldErrors: Partial<Record<MessageField, string>> } {
+/** Checks a message. Everyone gives the name and email the owner should reply to. */
+export function validateMessage(raw: unknown): { ok: true; data: MessageInput } | { ok: false; fieldErrors: Partial<Record<MessageField, string>> } {
   const parsed = shape.safeParse(raw ?? {});
   if (!parsed.success) {
     const fieldErrors: Partial<Record<MessageField, string>> = {};
@@ -43,11 +40,9 @@ export function validateMessage(raw: unknown, known: { name: boolean; email: boo
   }
   const data = { ...parsed.data, name: parsed.data.name.trim(), email: parsed.data.email.trim(), subject: parsed.data.subject.trim(), message: parsed.data.message.trim() };
   const fieldErrors: Partial<Record<MessageField, string>> = {};
-  if (!known.name && !data.name) fieldErrors.name = "Enter your name.";
-  if (!known.email) {
-    if (!data.email) fieldErrors.email = "Enter your email so the owner can reply.";
-    else if (!z.email().safeParse(data.email).success) fieldErrors.email = "Enter an email like name@example.com.";
-  }
+  if (!data.name) fieldErrors.name = "Enter your name.";
+  if (!data.email) fieldErrors.email = "Enter your email so the owner can reply.";
+  else if (!z.email().safeParse(data.email).success) fieldErrors.email = "Enter an email like name@example.com.";
   if (!data.subject) fieldErrors.subject = "Add a subject.";
   if (!data.message) fieldErrors.message = "Write your message.";
   return Object.keys(fieldErrors).length ? { ok: false, fieldErrors } : { ok: true, data };
@@ -60,7 +55,27 @@ export type MessageSummary = {
   senderEmail: string;
   subject: string;
   body: string;
-  verified: boolean;
   createdAt: string;
   readAt: string | null;
 };
+
+/**
+ * Gmail's compose window, signed in as the owner (authuser), addressed to the
+ * sender, with the subject and their message quoted. Opens in a new tab.
+ */
+export function gmailReplyUrl(message: Pick<MessageSummary, "senderName" | "senderEmail" | "subject" | "body">, from: string | null): string {
+  const quoted = message.body
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n")
+    .slice(0, 1500);
+  const params: Array<[string, string]> = [
+    ["view", "cm"],
+    ["fs", "1"],
+    ["to", message.senderEmail],
+    ["su", `Re: ${message.subject}`],
+    ["body", `\n\n${message.senderName} wrote:\n${quoted}`],
+  ];
+  if (from) params.unshift(["authuser", from]);
+  return `https://mail.google.com/mail/?${params.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
+}

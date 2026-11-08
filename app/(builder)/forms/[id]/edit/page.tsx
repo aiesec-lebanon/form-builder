@@ -50,7 +50,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       where: { formId: id },
       orderBy: { createdAt: "desc" },
       take: 200,
-      select: { id: true, senderName: true, senderEmail: true, subject: true, body: true, verified: true, createdAt: true, readAt: true },
+      select: { id: true, senderName: true, senderEmail: true, subject: true, body: true, createdAt: true, readAt: true },
     }),
   ]);
   const tab = (await searchParams).tab;
@@ -79,6 +79,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       googlePicker={Boolean(googlePickerConfig())}
       googleAccounts={googleAccounts}
       initialTab={initialTab}
+      replyFrom={user.email}
       messages={messages.map((message) => ({ ...message, createdAt: message.createdAt.toISOString(), readAt: message.readAt?.toISOString() ?? null }))}
       collaborators={collaboration ? <CollaboratorsPanel formId={form.id} initial={collaboration} /> : null}
     />

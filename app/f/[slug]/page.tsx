@@ -60,7 +60,7 @@ export default async function PublicFormPage({ params, searchParams }: Props) {
             doc={form.doc}
             slug={slug}
             reason={problem}
-            respondent={respondent ? { name: respondent.name, email: respondent.email, canSwitch: respondent.source === "respondent" } : null}
+            respondent={respondent ? { name: respondent.name, canSwitch: respondent.source === "respondent" } : null}
             signInError={typeof signin === "string" ? signin : null}
             turnstileSiteKey={turnstileSiteKey()}
           />

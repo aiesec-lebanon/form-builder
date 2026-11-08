@@ -514,7 +514,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
           </>
         )}
 
-        <FormFooter slug={mode === "preview" ? undefined : slug} sender={respondent ? { name: respondent.name, email: respondent.email } : null} turnstileSiteKey={botCheck ? turnstileSiteKey : null} />
+        <FormFooter slug={mode === "preview" ? undefined : slug} turnstileSiteKey={botCheck ? turnstileSiteKey : null} />
       </div>
 
       <Modal

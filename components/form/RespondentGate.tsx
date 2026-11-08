@@ -21,7 +21,7 @@ type Props = {
   doc: FormDocument;
   slug: string;
   reason: GateReason;
-  respondent?: { name: string; email?: string | null; canSwitch: boolean } | null;
+  respondent?: { name: string; canSwitch: boolean } | null;
   signInError?: string | null;
   turnstileSiteKey?: string | null;
 };
@@ -89,7 +89,7 @@ export function RespondentGate({ doc, slug, reason, respondent, signInError, tur
           )}
           {action}
         </section>
-        <FormFooter slug={slug} sender={respondent ? { name: respondent.name, email: respondent.email ?? null } : null} turnstileSiteKey={turnstileSiteKey} />
+        <FormFooter slug={slug} turnstileSiteKey={turnstileSiteKey} />
       </div>
     </div>
   );

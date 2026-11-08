@@ -1,12 +1,12 @@
 "use client";
 
-import { BadgeCheck, Inbox, Mail, Trash2 } from "lucide-react";
+import { Inbox, Mail, Trash2 } from "lucide-react";
 import * as React from "react";
 
 import { deleteMessage, markMessageRead } from "@/actions/messages";
 import { Button, Modal, cx, useToast } from "@/components/aiesec";
 import { RelativeTime } from "@/components/app/RelativeTime";
-import type { MessageSummary } from "@/lib/forms/messages";
+import { gmailReplyUrl, type MessageSummary } from "@/lib/forms/messages";
 
 // Messages from "Contact form owner" (ADR-017). Opening one marks it read;
 // replies go through the owner's own mail app.
@@ -15,9 +15,11 @@ type Props = {
   formId: string;
   messages: MessageSummary[];
   onMessages: (messages: MessageSummary[]) => void;
+  /** The signed-in owner's email: replies open Gmail as this account. */
+  replyFrom: string | null;
 };
 
-export function MessagesPanel({ formId, messages, onMessages }: Props) {
+export function MessagesPanel({ formId, messages, onMessages, replyFrom }: Props) {
   const toast = useToast();
   const [deleting, setDeleting] = React.useState<MessageSummary | null>(null);
   const [pending, startTransition] = React.useTransition();
@@ -57,7 +59,7 @@ export function MessagesPanel({ formId, messages, onMessages }: Props) {
         <ul role="list" className="flex flex-col gap-3">
           {messages.map((message) => {
             const unread = !message.readAt;
-            const reply = `mailto:${message.senderEmail}?subject=${encodeURIComponent(`Re: ${message.subject}`)}`;
+            const reply = gmailReplyUrl(message, replyFrom);
             return (
               <li key={message.id} className="rounded-lg border border-border bg-surface">
                 <details onToggle={(event) => event.currentTarget.open && markRead(message)}>
@@ -66,12 +68,6 @@ export function MessagesPanel({ formId, messages, onMessages }: Props) {
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className={cx("ae-body text-text", unread && "font-bold")}>{message.senderName}</span>
-                        {message.verified && (
-                          <span className="inline-flex items-center gap-1 ae-caption text-success-text" title="Name and email come from an AIESEC sign-in">
-                            <BadgeCheck size={14} aria-hidden="true" />
-                            AIESEC sign-in
-                          </span>
-                        )}
                         <span className="ml-auto ae-caption text-text-muted">
                           <RelativeTime value={message.createdAt} />
                         </span>
@@ -86,9 +82,11 @@ export function MessagesPanel({ formId, messages, onMessages }: Props) {
                     </p>
                     <p className="whitespace-pre-wrap break-words ae-body text-text">{message.body}</p>
                     <div className="flex flex-wrap gap-2">
-                      <Button as="a" href={reply} variant="primary" size="sm" iconStart={<Mail size={16} aria-hidden="true" />}>
+                      <a href={reply} target="_blank" rel="noopener noreferrer" title={replyFrom ? `Opens Gmail as ${replyFrom}` : "Opens Gmail"} className="ae-btn ae-btn--primary ae-btn--sm ae-body-sm no-underline">
+                        <Mail size={16} aria-hidden="true" />
                         Reply by email
-                      </Button>
+                        <span className="sr-only"> (opens Gmail in a new tab)</span>
+                      </a>
                       <Button size="sm" variant="tertiary" iconStart={<Trash2 size={16} aria-hidden="true" />} onClick={() => setDeleting(message)}>
                         Delete
                       </Button>

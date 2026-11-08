@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { AiesecLogo } from "@/components/brand/Logo";
 
-import { ContactOwnerDialog, type Sender } from "./ContactOwner";
+import { ContactOwnerDialog } from "./ContactOwner";
 
 // The public form's footer, after Google Forms': safety note, contact, terms,
 // privacy, report, and the AIESEC logo (never the "Powered by AIESEC" mark).
@@ -22,12 +22,10 @@ function Separator() {
 type Props = {
   /** Absent in the builder's preview: contact and report are shown but inactive. */
   slug?: string;
-  /** Who's answering, when they signed in with AIESEC. */
-  sender?: Sender | null;
   turnstileSiteKey?: string | null;
 };
 
-export function FormFooter({ slug, sender = null, turnstileSiteKey = null }: Props) {
+export function FormFooter({ slug, turnstileSiteKey = null }: Props) {
   const [contactOpen, setContactOpen] = React.useState(false);
 
   return (
@@ -66,7 +64,7 @@ export function FormFooter({ slug, sender = null, turnstileSiteKey = null }: Pro
         <AiesecLogo height={18} />
       </a>
 
-      {slug && <ContactOwnerDialog slug={slug} open={contactOpen} onClose={() => setContactOpen(false)} sender={sender} turnstileSiteKey={turnstileSiteKey} />}
+      {slug && <ContactOwnerDialog slug={slug} open={contactOpen} onClose={() => setContactOpen(false)} turnstileSiteKey={turnstileSiteKey} />}
     </footer>
   );
 }

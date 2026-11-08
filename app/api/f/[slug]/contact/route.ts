@@ -4,7 +4,6 @@ import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { baseUrl } from "@/lib/env";
 import { validateMessage } from "@/lib/forms/messages";
-import { currentRespondent } from "@/lib/forms/respondents";
 import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
@@ -18,7 +17,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 /**
  * "Contact form owner" (ADR-017): stores a message for the form's owner and
  * editors, who read it in the builder. The owner's email is never revealed;
- * the sender's name and email travel with the message so the owner can reply.
+ * the name and email the sender typed travel with the message for the reply.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -33,10 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const raw = read.value as { website?: unknown } | null;
   if (raw && typeof raw.website === "string" && raw.website) return jsonOk({ sent: true });
 
-  // Signed in with AIESEC: name and email come from the sign-in, not the form.
-  const sender = await currentRespondent();
-  const known = { name: Boolean(sender?.name), email: Boolean(sender?.email) };
-  const checked = validateMessage(read.value, known);
+  const checked = validateMessage(read.value);
   if (!checked.ok) return jsonError(422, "invalid", "Some fields need fixing.", { fieldErrors: checked.fieldErrors });
 
   const ip = clientIp(request.headers);
@@ -47,18 +43,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const human = await verifyTurnstile({ token: checked.data.turnstileToken, ip, idempotencyKey: crypto.randomUUID() });
   if (!human.ok) return jsonError(403, "forbidden", "Complete the check above the button, then send again.", { error: "bot_check" });
 
-  const verified = known.name && known.email;
   await db.formMessage.create({
-    data: {
-      formId: form.id,
-      senderName: sender?.name ? sender.name.slice(0, 100) : checked.data.name,
-      senderEmail: sender?.email ?? checked.data.email,
-      subject: checked.data.subject,
-      body: checked.data.message,
-      verified,
-      ipHash,
-    },
+    data: { formId: form.id, senderName: checked.data.name, senderEmail: checked.data.email, subject: checked.data.subject, body: checked.data.message, ipHash },
   });
-  logger.info("form.message_received", { formId: form.id, verified });
+  logger.info("form.message_received", { formId: form.id });
   return jsonOk({ sent: true });
 }

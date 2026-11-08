@@ -92,14 +92,16 @@ describe("contacting the owner", () => {
     const response = await send(message);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, sent: true });
-    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ formId: "form-1", senderName: "Lina Haddad", senderEmail: "lina@example.org", subject: "Deadline", body: "Can I still apply next week?", verified: false });
+    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ formId: "form-1", senderName: "Lina Haddad", senderEmail: "lina@example.org", subject: "Deadline", body: "Can I still apply next week?" });
     expect(m.db.formMessage.create.mock.calls[0][0].data.ipHash).not.toContain("203.0.113.9");
   });
 
-  it("uses the AIESEC sign-in for name and email when there is one", async () => {
-    m.currentRespondent.mockResolvedValueOnce({ aiesecId: "5099966", name: "Rami Khoury", email: "rami@aiesec.net", member: true, source: "respondent" });
-    expect((await send({ subject: "Hi", message: "Question about the form" })).status).toBe(200);
-    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ senderName: "Rami Khoury", senderEmail: "rami@aiesec.net", verified: true });
+  it("always uses the name and email the person typed, even when signed in", async () => {
+    m.currentRespondent.mockResolvedValue({ aiesecId: "5099966", name: "Rami Khoury", email: "rami@aiesec.net", member: true, source: "respondent" });
+    expect((await send({ subject: "Hi", message: "Question about the form" })).status).toBe(422);
+    expect((await send({ ...message, name: "Rami K.", email: "rami.k@example.org" })).status).toBe(200);
+    expect(m.db.formMessage.create.mock.calls[0][0].data).toMatchObject({ senderName: "Rami K.", senderEmail: "rami.k@example.org" });
+    expect(m.db.formMessage.create.mock.calls[0][0].data).not.toHaveProperty("verified");
   });
 
   it("explains what to fix, field by field", async () => {

@@ -56,6 +56,8 @@ type Props = {
   googleAccounts: GoogleAccount[];
   /** "Contact form owner" messages, newest first (ADR-017). */
   messages: MessageSummary[];
+  /** The signed-in user's email, for replying to messages from their own Gmail. */
+  replyFrom: string | null;
   initialTab: BuilderTab;
   collaborators?: React.ReactNode;
 };
@@ -65,7 +67,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return Boolean(element && (element.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)));
 }
 
-export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googlePicker, googleAccounts, messages: initialMessages, initialTab, collaborators }: Props) {
+export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googlePicker, googleAccounts, messages: initialMessages, replyFrom, initialTab, collaborators }: Props) {
   const toast = useToast();
   const pathname = usePathname();
   const [state, dispatch] = React.useReducer(builderReducer, initialDoc, initialState);
@@ -350,7 +352,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         )}
         {tab === "messages" && (
           <main id="panel-messages" role="tabpanel" aria-labelledby="tab-messages" className={panelClass}>
-            <MessagesPanel formId={form.id} messages={messages} onMessages={setMessages} />
+            <MessagesPanel formId={form.id} messages={messages} onMessages={setMessages} replyFrom={replyFrom} />
           </main>
         )}
         {tab === "settings" && (
