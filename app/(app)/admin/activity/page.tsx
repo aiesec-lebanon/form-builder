@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import NextLink from "next/link";
 
 import { Avatar, cx } from "@/components/aiesec";
-import { RelativeTime } from "@/components/app/RelativeTime";
+import { activityHref, auditOrderBy, auditWhere, hasFilters, PAGE_SIZE, pageWindow, parseActivityQuery, reportOrderBy, reportWhere, type ActivityTab } from "@/lib/admin/activity-query";
 import { requireAdmin } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
-import { formatCount, shortDate } from "@/lib/format";
+import { formatCount } from "@/lib/format";
+import { REPORT_REASON_LABEL, REPORT_REASONS } from "@/lib/forms/reports";
 import { describeUserAgent } from "@/lib/request";
 
-import { ReportsList } from "./ReportsList";
+import { ActivityPagination } from "./ActivityPagination";
+import { ReportsTable } from "./ReportsList";
+import { Filters, PlainHeader, ResultCount, SortHeader, When } from "./table-parts";
 
 export const metadata: Metadata = { title: "Activity", robots: { index: false } };
-
-const PAGE_SIZE = 50;
 
 const EVENT_LABELS: Record<string, string> = {
   "auth.sign_in": "Signed in",
@@ -36,6 +37,10 @@ const EVENT_LABELS: Record<string, string> = {
   "google.disconnected": "Disconnected Google",
   "google.folder_moved": "Moved the AIESEC Forms folder",
 };
+const EVENT_OPTIONS = Object.entries(EVENT_LABELS)
+  .map(([value, label]) => ({ value, label }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+const REASON_OPTIONS = REPORT_REASONS.map((value) => ({ value, label: REPORT_REASON_LABEL[value] }));
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -53,107 +58,81 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function When({ date }: { date: Date }) {
-  return (
-    <span className="flex flex-col">
-      <span className="ae-body-sm text-text">
-        {shortDate(date)}, {date.toISOString().slice(11, 16)} UTC
-      </span>
-      <span className="ae-caption text-text-muted">
-        <RelativeTime value={date} />
-      </span>
-    </span>
-  );
-}
+const actorSelect = { select: { fullName: true, photoUrl: true, officeName: true, positionTitle: true, aiesecPersonId: true } } as const;
+const reportInclude = { form: { select: { id: true, title: true, slug: true, acceptingResponses: true, deletedAt: true, owner: { select: { fullName: true, email: true } } } } } as const;
 
 export default async function ActivityPage({ searchParams }: Props) {
   await requireAdmin();
-  const params = await searchParams;
-  const tab = params.tab === "all" ? "all" : params.tab === "reports" ? "reports" : "signins";
-  const before = typeof params.before === "string" && /^\d{1,19}$/.test(params.before) ? BigInt(params.before) : undefined;
+  const query = parseActivityQuery(await searchParams);
+  const filtered = hasFilters(query);
 
-  const since = daysAgo(7);
-  const [events, members, signIns, forms, liveForms, openReports] = await Promise.all([
-    db.auditEvent.findMany({
-      where: { ...(tab === "signins" ? { type: "auth.sign_in" } : {}), ...(before ? { id: { lt: before } } : {}) },
-      orderBy: { id: "desc" },
-      take: PAGE_SIZE + 1,
-      include: { actor: { select: { fullName: true, photoUrl: true, officeName: true, positionTitle: true, aiesecPersonId: true } } },
-    }),
+  const [members, signIns, forms, liveForms, openReports, entities] = await Promise.all([
     db.user.count(),
-    db.auditEvent.count({ where: { type: "auth.sign_in", createdAt: { gte: since } } }),
+    db.auditEvent.count({ where: { type: "auth.sign_in", createdAt: { gte: daysAgo(7) } } }),
     db.form.count({ where: { deletedAt: null } }),
     db.form.count({ where: { deletedAt: null, publishedAt: { not: null }, acceptingResponses: true } }),
     db.formReport.count({ where: { reviewedAt: null } }),
+    query.tab === "signins"
+      ? db.user
+          .findMany({ where: { officeName: { not: null } }, distinct: ["officeName"], select: { officeName: true }, orderBy: { officeName: "asc" }, take: 300 })
+          .then((rows) => rows.map((row) => row.officeName as string))
+      : Promise.resolve([] as string[]),
   ]);
-  const rows = events.slice(0, PAGE_SIZE);
-  const hasMore = events.length > PAGE_SIZE;
 
-  const formIds = [...new Set(rows.filter((row) => row.targetType === "form" && row.targetId).map((row) => row.targetId as string))];
-  const formTitles = new Map((formIds.length ? await db.form.findMany({ where: { id: { in: formIds } }, select: { id: true, title: true } }) : []).map((form) => [form.id, form.title]));
+  let table: React.ReactNode;
+  let pages: ReturnType<typeof pageWindow>;
+  let total: number;
 
-  const tabLink = (id: "signins" | "all" | "reports", label: string) => (
-    <NextLink
-      href={`/admin/activity${id === "signins" ? "" : `?tab=${id}`}`}
-      aria-current={tab === id ? "page" : undefined}
-      className={cx("inline-flex h-10 items-center rounded-md px-3 ae-label no-underline", tab === id ? "bg-surface text-text shadow-[var(--ae-shadow-xs),inset_0_0_0_1px_var(--ae-border)]" : "text-text-muted hover:bg-fill hover:text-text")}
-    >
-      {label}
-    </NextLink>
-  );
+  if (query.tab === "reports") {
+    const where = reportWhere(query);
+    total = await db.formReport.count({ where });
+    pages = pageWindow(query.page, total);
+    const reports = await db.formReport.findMany({ where, orderBy: reportOrderBy(query), skip: pages.skip, take: PAGE_SIZE, include: reportInclude });
+    table = <ReportsTable query={query} reports={reports} filtered={filtered} />;
+  } else {
+    // "Form" filter on all activity: events about forms whose title matches.
+    const formIds = query.tab === "all" && query.form ? (await db.form.findMany({ where: { title: { contains: query.form, mode: "insensitive" } }, select: { id: true }, take: 500 })).map((form) => form.id) : undefined;
+    const where = auditWhere(query, formIds);
+    total = await db.auditEvent.count({ where });
+    pages = pageWindow(query.page, total);
+    const rows = await db.auditEvent.findMany({ where, orderBy: auditOrderBy(query), skip: pages.skip, take: PAGE_SIZE, include: { actor: actorSelect } });
+    const targetIds = [...new Set(rows.filter((row) => row.targetType === "form" && row.targetId).map((row) => row.targetId as string))];
+    const formTitles = new Map((targetIds.length ? await db.form.findMany({ where: { id: { in: targetIds } }, select: { id: true, title: true } }) : []).map((form) => [form.id, form.title]));
+    const signins = query.tab === "signins";
 
-  return (
-    <div className="ae-container flex flex-col gap-8 py-8 lg:py-12">
-      <div className="flex flex-col gap-1">
-        <h1 className="ae-h2">Activity</h1>
-        <p className="ae-body text-text-muted">Who signed in and what changed. Response data is never recorded here.</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Members signed up" value={members} />
-        <Stat label="Sign-ins, last 7 days" value={signIns} />
-        <Stat label="Forms" value={forms} />
-        <Stat label="Live forms" value={liveForms} />
-      </div>
-
-      <nav aria-label="Activity views" className="flex gap-1">
-        {tabLink("signins", "Sign-ins")}
-        {tabLink("all", "All activity")}
-        {tabLink("reports", openReports > 0 ? `Reports (${formatCount(openReports)})` : "Reports")}
-      </nav>
-
-      {tab === "reports" ? (
-        <ReportsList />
-      ) : rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border-strong p-8 ae-body text-text-muted">Nothing here yet.</p>
-      ) : (
-        <div className="ae-table-wrap">
-          <table className="ae-table">
-            <caption className="ae-sr-only">{tab === "signins" ? "Recent sign-ins" : "Recent activity"}</caption>
-            <thead>
+    table = (
+      <div className="ae-table-wrap">
+        <table className="ae-table min-w-[44rem]">
+          <caption className="ae-sr-only">{signins ? "Sign-ins" : "Activity"}</caption>
+          <thead>
+            <tr>
+              <SortHeader query={query} column={signins ? "member" : "event"}>
+                {signins ? "Member" : "Event"}
+              </SortHeader>
+              <SortHeader query={query} column={signins ? "entity" : "by"}>
+                {signins ? "Entity and position" : "By"}
+              </SortHeader>
+              <PlainHeader>{signins ? "Device" : "Details"}</PlainHeader>
+              <SortHeader query={query} column="when">
+                When
+              </SortHeader>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
               <tr>
-                <th scope="col" className="ae-label">
-                  {tab === "signins" ? "Member" : "Event"}
-                </th>
-                <th scope="col" className="ae-label">
-                  {tab === "signins" ? "Entity and position" : "By"}
-                </th>
-                <th scope="col" className="ae-label">
-                  {tab === "signins" ? "Device" : "Details"}
-                </th>
-                <th scope="col" className="ae-label">
-                  When
-                </th>
+                <td colSpan={4} className="ae-table__empty ae-body-sm">
+                  {filtered ? `No ${signins ? "sign-ins" : "activity"} matches these filters.` : "Nothing here yet."}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
+            ) : (
+              rows.map((row) => {
                 const meta = (row.metadata ?? {}) as Record<string, unknown>;
                 const name = row.actor?.fullName ?? (row.type === "auth.sign_in_refused" ? `EXPA ${String(meta.aiesecPersonId ?? "unknown")}` : "System");
                 return (
                   <tr key={row.id.toString()}>
                     <td>
-                      {tab === "signins" ? (
+                      {signins ? (
                         <span className="flex items-center gap-3">
                           <Avatar name={name} src={row.actor?.photoUrl ?? undefined} size="sm" decorative />
                           <span className="flex flex-col">
@@ -165,11 +144,9 @@ export default async function ActivityPage({ searchParams }: Props) {
                         <span className="ae-label text-text">{EVENT_LABELS[row.type] ?? row.type}</span>
                       )}
                     </td>
-                    <td className="ae-body-sm text-text">
-                      {tab === "signins" ? [row.actor?.officeName ?? (meta.office as string | undefined), row.actor?.positionTitle].filter(Boolean).join(" · ") || "—" : name}
-                    </td>
+                    <td className="ae-body-sm text-text">{signins ? [row.actor?.officeName ?? (meta.office as string | undefined), row.actor?.positionTitle].filter(Boolean).join(" · ") || "—" : name}</td>
                     <td className="ae-body-sm text-text-muted">
-                      {tab === "signins"
+                      {signins
                         ? describeUserAgent(row.userAgent)
                         : row.targetType === "form" && row.targetId
                           ? (formTitles.get(row.targetId) ?? "Deleted form")
@@ -182,26 +159,55 @@ export default async function ActivityPage({ searchParams }: Props) {
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
-      {tab !== "reports" && (
-        <div className="flex gap-3">
-          {before && (
-            <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity${tab === "all" ? "?tab=all" : ""}`}>
-              Newest
-            </NextLink>
-          )}
-          {hasMore && (
-            <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity?${tab === "all" ? "tab=all&" : ""}before=${rows[rows.length - 1].id.toString()}`}>
-              Older
-            </NextLink>
-          )}
-        </div>
+  const tabLink = (id: ActivityTab, label: string) => (
+    <NextLink
+      href={activityHref({ ...query, tab: id, sort: "when", dir: "desc" })}
+      aria-current={query.tab === id ? "page" : undefined}
+      className={cx(
+        "inline-flex h-10 items-center rounded-md px-3 ae-label no-underline",
+        query.tab === id ? "bg-surface text-text shadow-[var(--ae-shadow-xs),inset_0_0_0_1px_var(--ae-border)]" : "text-text-muted hover:bg-fill hover:text-text",
       )}
+    >
+      {label}
+    </NextLink>
+  );
+
+  return (
+    <div className="ae-container flex flex-col gap-8 py-8 lg:py-12">
+      <div className="flex flex-col gap-1">
+        <h1 className="ae-h2">Activity</h1>
+        <p className="ae-body text-text-muted">Who signed in, what changed, and reports about forms. Response data is never recorded here.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat label="Members signed up" value={members} />
+        <Stat label="Sign-ins, last 7 days" value={signIns} />
+        <Stat label="Forms" value={forms} />
+        <Stat label="Live forms" value={liveForms} />
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <nav aria-label="Activity views" className="flex flex-wrap gap-1">
+          {tabLink("signins", "Sign-ins")}
+          {tabLink("all", "All activity")}
+          {tabLink("reports", openReports > 0 ? `Reports (${formatCount(openReports)} open)` : "Reports")}
+        </nav>
+        <Filters key={query.tab} query={query} entities={entities} events={EVENT_OPTIONS} reasons={REASON_OPTIONS} />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <ResultCount first={pages.first} last={pages.last} total={total} noun={{ signins: "sign-ins", all: "events", reports: "reports" }[query.tab]} />
+        {table}
+        <ActivityPagination query={query} page={pages.page} pageCount={pages.pageCount} />
+      </div>
     </div>
   );
 }
