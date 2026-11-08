@@ -134,7 +134,7 @@ export function CollaboratorsPanel({ formId, initial }: Props) {
         ))}
         {data.invites.map((invite) => (
           <li key={invite.id} className="flex items-center gap-3 py-3">
-            <span className="inline-flex size-8 items-center justify-center rounded-full bg-bg-subtle text-text-muted">
+            <span className="inline-flex size-8 items-center justify-center rounded-full bg-fill text-text-muted">
               <Mail size={16} aria-hidden="true" />
             </span>
             <div className="flex min-w-0 flex-1 flex-col">

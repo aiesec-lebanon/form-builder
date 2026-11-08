@@ -8,8 +8,10 @@
 // - colour aliases kept as var() references, so a nested [data-theme] scope
 //   re-resolves them against its own values;
 // - light (first theme) values on :root; theme-dependent tokens re-declared on
-//   [data-theme="light"], [data-theme="dark"] and, when the page sets no theme,
-//   under prefers-color-scheme: dark;
+//   every [data-theme="<theme>"] (light, dark, warm-light, warm-dark, …);
+// - "follow the OS" variants: no data-theme at all for the calm style, and a
+//   bare style name (data-theme="warm", "bold", "playful") for the others,
+//   switching to the style's dark values under prefers-color-scheme: dark;
 // - one `.ae-<style>` class per type style.
 // No @font-face rules: fonts are loaded with next/font (see app/fonts.ts).
 import { readFileSync, writeFileSync } from "node:fs";
@@ -91,21 +93,42 @@ for (const [, family] of plainFamilies) {
 }
 lines.push("}");
 
+const isDark = (theme) => theme === "dark" || theme.endsWith("-dark");
+
 for (const theme of themes) {
   lines.push("");
   lines.push(`[data-theme="${theme}"] {`);
-  lines.push(`  color-scheme: ${theme === "dark" ? "dark" : "light"};`);
+  lines.push(`  color-scheme: ${isDark(theme) ? "dark" : "light"};`);
   lines.push(declarations(themeDependent, theme));
+  lines.push("}");
+}
+
+// Styles that ship a light and a dark theme ("warm" → warm-light + warm-dark).
+const autoStyles = themes
+  .filter((theme) => theme.endsWith("-light") && themes.includes(theme.replace(/-light$/, "-dark")))
+  .map((theme) => theme.replace(/-light$/, ""));
+
+for (const style of autoStyles) {
+  lines.push("");
+  lines.push(`[data-theme="${style}"] {`);
+  lines.push("  color-scheme: light;");
+  lines.push(declarations(themeDependent, `${style}-light`));
   lines.push("}");
 }
 
 if (themes.includes("dark")) {
   lines.push("");
   lines.push("@media (prefers-color-scheme: dark) {");
-  lines.push('  :root:not([data-theme="light"]) {');
+  lines.push("  :root:not([data-theme]) {");
   lines.push("    color-scheme: dark;");
   lines.push(declarations(themeDependent, "dark", "    "));
   lines.push("  }");
+  for (const style of autoStyles) {
+    lines.push(`  [data-theme="${style}"] {`);
+    lines.push("    color-scheme: dark;");
+    lines.push(declarations(themeDependent, `${style}-dark`, "    "));
+    lines.push("  }");
+  }
   lines.push("}");
 }
 

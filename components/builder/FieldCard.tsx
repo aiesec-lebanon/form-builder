@@ -33,7 +33,7 @@ type Props = {
   logicLabel?: string | null;
 };
 
-const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-bg-subtle hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
+const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-fill hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
 
 export const FieldCard = React.memo(function FieldCard({ field, number, pageId, selected, autoFocus, canMoveUp, canMoveDown, dispatch, onDuplicate, onDelete, onOpenSettings, logicLabel }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: field.id, data: { pageId } });
@@ -102,7 +102,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
               <Menu
                 label={`Question type: ${definition.name}. Change type`}
                 align="end"
-                triggerClassName="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-md border border-border-strong bg-surface px-3 ae-body-sm text-text hover:bg-bg-subtle"
+                triggerClassName="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-md border border-border-strong bg-surface px-3 ae-body-sm text-text hover:bg-fill"
                 trigger={
                   <>
                     <Icon size={16} aria-hidden="true" />
@@ -116,7 +116,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
                 })}
               />
             ) : (
-              <span className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-md bg-bg-subtle px-3 ae-body-sm text-text-muted">
+              <span className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-md bg-fill px-3 ae-body-sm text-text-muted">
                 <Icon size={16} aria-hidden="true" />
                 {definition.name}
               </span>

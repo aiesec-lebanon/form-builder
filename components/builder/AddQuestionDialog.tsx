@@ -79,9 +79,9 @@ function AddQuestionBody({ onPick, onAddPage }: Omit<Props, "open" | "onClose">)
                     <button
                       type="button"
                       onClick={() => onPick(type)}
-                      className="flex w-full items-center gap-3 rounded-md border border-border bg-surface p-3 text-left hover:border-border-strong hover:bg-bg-subtle"
+                      className="flex w-full items-center gap-3 rounded-md border border-border bg-surface p-3 text-left hover:border-border-strong hover:bg-fill"
                     >
-                      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-text">
+                      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-fill text-text">
                         <Icon size={18} aria-hidden="true" />
                       </span>
                       <span className="flex min-w-0 flex-col">
@@ -98,7 +98,7 @@ function AddQuestionBody({ onPick, onAddPage }: Omit<Props, "open" | "onClose">)
       )}
 
       {!needle && (
-        <button type="button" onClick={onAddPage} className="flex items-center gap-3 rounded-md border border-dashed border-border-strong p-3 text-left hover:bg-bg-subtle">
+        <button type="button" onClick={onAddPage} className="flex items-center gap-3 rounded-md border border-dashed border-border-strong p-3 text-left hover:bg-fill">
           <FilePlus2 size={18} aria-hidden="true" className="text-text-muted" />
           <span className="flex flex-col">
             <span className="ae-label text-text">New page</span>

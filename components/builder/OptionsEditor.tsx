@@ -147,13 +147,13 @@ export function OptionsEditor({ options, onOptions, marker, itemName = "Option",
           type="button"
           onClick={() => insertAfter(options.length - 1)}
           disabled={options.length >= max}
-          className="inline-flex h-10 items-center gap-2 rounded-md px-2 ae-label text-primary-text hover:bg-primary-soft disabled:opacity-45"
+          className="inline-flex h-10 items-center gap-2 rounded-md px-2 ae-label text-primary-text hover:bg-fill disabled:opacity-45"
         >
           <Plus size={18} aria-hidden="true" />
           Add {lower}
         </button>
         {onAllowOther && !allowOther && (
-          <button type="button" onClick={() => onAllowOther(true)} className="inline-flex h-10 items-center rounded-md px-2 ae-body-sm text-text-muted hover:bg-bg-subtle hover:text-text">
+          <button type="button" onClick={() => onAllowOther(true)} className="inline-flex h-10 items-center rounded-md px-2 ae-body-sm text-text-muted hover:bg-fill hover:text-text">
             Add &ldquo;{OTHER_LABEL}&rdquo;
           </button>
         )}

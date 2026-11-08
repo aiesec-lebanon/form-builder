@@ -20,12 +20,13 @@
   --font-programs: var(--font-raleway), var(--font-sans);
 }
 
+/* Dark themes: "dark" and every "<style>-dark"; with no theme set, the OS decides. */
 @custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
+  &:where([data-theme="dark"], [data-theme$="-dark"], [data-theme="dark"] *, [data-theme$="-dark"] *) {
     @slot;
   }
   @media (prefers-color-scheme: dark) {
-    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *):not(:where([data-theme="light"], [data-theme="light"] *)) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *):not(:where([data-theme$="light"], [data-theme$="light"] *)) {
       @slot;
     }
   }
@@ -35,6 +36,8 @@
   --color-*: initial;
   --color-bg: var(--ae-bg);
   --color-bg-subtle: var(--ae-bg-subtle);
+  --color-fill: var(--ae-fill);
+  --color-fill-strong: var(--ae-fill-strong);
   --color-surface: var(--ae-surface);
   --color-surface-raised: var(--ae-surface-raised);
   --color-scrim: var(--ae-scrim);
@@ -43,6 +46,8 @@
   --color-text: var(--ae-text);
   --color-text-muted: var(--ae-text-muted);
   --color-text-disabled: var(--ae-text-disabled);
+  --color-ink: var(--ae-ink);
+  --color-on-ink: var(--ae-on-ink);
   --color-brand: var(--ae-brand);
   --color-on-brand: var(--ae-on-brand);
   --color-primary: var(--ae-primary);
@@ -80,6 +85,8 @@
   --radius-full: var(--ae-radius-full);
 
   --shadow-*: initial;
+  --shadow-xs: var(--ae-shadow-xs);
+  --shadow-card: var(--ae-shadow-card);
   --shadow-sm: var(--ae-shadow-sm);
   --shadow-md: var(--ae-shadow-md);
   --shadow-lg: var(--ae-shadow-lg);
@@ -115,7 +122,7 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
     .fb-sheet[open] {
-      animation: fb-sheet-up var(--ae-duration-base) var(--ae-ease-enter);
+      animation: fb-sheet-up var(--ae-duration-slow) var(--ae-ease-out);
     }
   }
   @media (min-width: 1024px) {
@@ -130,7 +137,7 @@
       box-shadow: var(--ae-shadow-lg);
     }
     .fb-sheet[open] {
-      animation: fb-dialog-in var(--ae-duration-base) var(--ae-ease-enter);
+      animation: fb-dialog-in var(--ae-duration-slow) var(--ae-ease-out);
     }
   }
   /* Transparent embeds let the host page's background show through. */

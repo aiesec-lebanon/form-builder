@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
-import { Alert, Badge, Button, cx, useToast } from "@/components/aiesec";
+import { Alert, Badge, Button, useToast } from "@/components/aiesec";
 import type { DestinationSummary, DestinationType } from "@/lib/destinations/types";
 
 import { Sheet } from "../Sheet";
@@ -43,12 +43,9 @@ function Chooser({ onChoose, googleConfigured }: { onChoose: (type: DestinationT
             <button
               type="button"
               onClick={() => onChoose(type)}
-              className={cx(
-                "flex h-full w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-150",
-                recommended ? "border-primary bg-primary-soft" : "border-border bg-surface hover:border-border-strong hover:bg-bg-subtle",
-              )}
+              className="group flex h-full w-full items-start gap-3 rounded-lg border border-border bg-surface p-4 text-left transition-colors duration-150 hover:border-border-strong hover:bg-fill"
             >
-              <span className={cx("inline-flex size-10 shrink-0 items-center justify-center rounded-md", recommended ? "bg-primary text-on-primary" : "bg-bg-subtle text-primary-text")}>
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-fill text-text group-hover:bg-surface">
                 <Icon size={20} aria-hidden="true" />
               </span>
               <span className="flex flex-col gap-1">

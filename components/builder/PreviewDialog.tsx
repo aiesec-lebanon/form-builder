@@ -54,7 +54,7 @@ export function PreviewDialog({ open, onClose, doc }: { open: boolean; onClose: 
       <div className="flex h-full flex-col">
         <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-4">
           <p className="ae-label">Preview</p>
-          <div className="hidden items-center gap-1 rounded-md bg-bg-subtle p-1 sm:flex" role="group" aria-label="Device">
+          <div className="hidden items-center gap-1 rounded-md bg-fill p-1 sm:flex" role="group" aria-label="Device">
             {segment("phone", "Phone", <Smartphone size={16} aria-hidden="true" />)}
             {segment("desktop", "Desktop", <Monitor size={16} aria-hidden="true" />)}
           </div>

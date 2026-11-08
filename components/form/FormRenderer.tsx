@@ -310,7 +310,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
           </section>
         ) : status === "closed" ? (
           <section className="flex flex-col items-start gap-4 py-6">
-            <span className="inline-flex size-14 items-center justify-center rounded-full bg-bg-subtle text-text-muted">
+            <span className="inline-flex size-14 items-center justify-center rounded-full bg-fill text-text-muted">
               <Lock size={28} aria-hidden="true" />
             </span>
             <h1 className="ae-h2">{doc.title || "This form"} is closed</h1>
@@ -348,7 +348,9 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                             event.preventDefault();
                             const target = document.getElementById(`q-${field.id}`);
                             target?.scrollIntoView({ block: "center", behavior: "smooth" });
-                            target?.querySelector<HTMLElement>("input, textarea, select")?.focus({ preventScroll: true });
+                            // React Aria controls mark their trigger; date fields focus the first segment.
+                            const control = target?.querySelector<HTMLElement>("[data-focus-target], [role='spinbutton']") ?? target?.querySelector<HTMLElement>("input, textarea, select");
+                            control?.focus({ preventScroll: true });
                           }}
                         >
                           {field.label || "Untitled question"}: {errors[field.id]}

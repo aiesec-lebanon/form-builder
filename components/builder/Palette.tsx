@@ -21,7 +21,7 @@ export function Palette({ onPick, onAddPage }: { onPick: (type: FieldType) => vo
                 key={type}
                 type="button"
                 onClick={() => onPick(type)}
-                className="flex h-10 items-center gap-3 rounded-md px-2 text-left ae-body-sm text-text hover:bg-bg-subtle"
+                className="flex h-10 items-center gap-3 rounded-md px-2 text-left ae-body-sm text-text hover:bg-fill"
               >
                 <Icon size={18} aria-hidden="true" className="text-text-muted" />
                 {definitionOf(type).name}
@@ -31,7 +31,7 @@ export function Palette({ onPick, onAddPage }: { onPick: (type: FieldType) => vo
         </div>
       ))}
       <div className="flex flex-col gap-1 border-t border-border pt-4">
-        <button type="button" onClick={onAddPage} className="flex h-10 items-center gap-3 rounded-md px-2 text-left ae-body-sm text-text hover:bg-bg-subtle">
+        <button type="button" onClick={onAddPage} className="flex h-10 items-center gap-3 rounded-md px-2 text-left ae-body-sm text-text hover:bg-fill">
           <FilePlus2 size={18} aria-hidden="true" className="text-text-muted" />
           New page
         </button>

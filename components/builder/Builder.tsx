@@ -253,7 +253,8 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
   const panelClass = "min-w-0 flex-1 overflow-y-auto bg-bg-subtle dark:bg-bg";
 
   return (
-    <div className="flex h-dvh flex-col bg-bg">
+    // A dense editing tool: the design system's subtle motion keeps it to quick state changes.
+    <div data-motion="subtle" className="flex h-dvh flex-col bg-bg">
       <TopBar
         title={state.doc.title}
         status={autosave.status}

@@ -5,6 +5,7 @@ import NextLink from "next/link";
 
 import { Button, cx } from "@/components/aiesec";
 import { Menu } from "@/components/app/Menu";
+import { useTabIndicator } from "@/components/app/useTabIndicator";
 
 import { SaveStatus } from "./SaveStatus";
 import type { SaveStatus as Status } from "./useAutosave";
@@ -35,16 +36,18 @@ type Props = {
   connectAttention: boolean;
 };
 
-const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-bg-subtle hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
+const iconButton = "inline-flex size-10 items-center justify-center rounded-md text-text-muted hover:bg-fill hover:text-text disabled:cursor-not-allowed disabled:opacity-45";
 
 export function TopBar(props: Props) {
   const { title, status, tab, onTab, canUndo, canRedo, onUndo, onRedo, onPreview, onShare, onPublish, publishLabel, publishDisabled, publishing, connectAttention } = props;
+  const { register, indicatorRef } = useTabIndicator(tab);
 
   const tabs = (
-    <div role="tablist" aria-label="Form editor sections" className="flex h-full items-stretch gap-1">
+    <div role="tablist" aria-label="Form editor sections" className="relative flex h-full items-stretch gap-1">
       {TABS.map((item) => (
         <button
           key={item.id}
+          ref={register(item.id)}
           type="button"
           role="tab"
           id={`tab-${item.id}`}
@@ -68,6 +71,7 @@ export function TopBar(props: Props) {
           )}
         </button>
       ))}
+      <span ref={indicatorRef} className="ae-tabs__indicator" aria-hidden="true" />
     </div>
   );
 
@@ -89,7 +93,7 @@ export function TopBar(props: Props) {
             <SaveStatus status={status} compact />
           </span>
         </div>
-        <nav aria-label="Editor sections" className="order-last -mx-2 flex h-12 w-full justify-center border-t border-border px-2 sm:-mx-4 sm:px-4 lg:order-none lg:mx-0 lg:h-16 lg:w-auto lg:flex-1 lg:border-t-0 lg:px-0">
+        <nav aria-label="Editor sections" className="order-last -mx-2 flex h-12 w-[calc(100%+1rem)] justify-center border-t border-border px-2 sm:-mx-4 sm:w-[calc(100%+2rem)] sm:px-4 lg:order-none lg:mx-0 lg:h-16 lg:w-auto lg:flex-1 lg:border-t-0 lg:px-0">
           {tabs}
         </nav>
         <div className="flex h-16 items-center gap-1 lg:order-last">

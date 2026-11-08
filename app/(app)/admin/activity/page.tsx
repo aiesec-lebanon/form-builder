@@ -89,7 +89,7 @@ export default async function ActivityPage({ searchParams }: Props) {
     <NextLink
       href={`/admin/activity${id === "all" ? "?tab=all" : ""}`}
       aria-current={tab === id ? "page" : undefined}
-      className={cx("inline-flex h-10 items-center rounded-md px-3 ae-label no-underline", tab === id ? "bg-primary-soft text-primary-text" : "text-text-muted hover:bg-bg-subtle hover:text-text")}
+      className={cx("inline-flex h-10 items-center rounded-md px-3 ae-label no-underline", tab === id ? "bg-surface text-text shadow-[var(--ae-shadow-xs),inset_0_0_0_1px_var(--ae-border)]" : "text-text-muted hover:bg-fill hover:text-text")}
     >
       {label}
     </NextLink>

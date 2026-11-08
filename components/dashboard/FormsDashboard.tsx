@@ -160,7 +160,7 @@ function ViewLink({ href, current, icon, children }: { href: string; current: bo
       aria-current={current ? "page" : undefined}
       className={cx(
         "inline-flex h-10 items-center gap-2 rounded-md px-3 ae-label no-underline",
-        current ? "bg-primary-soft text-primary-text" : "text-text-muted hover:bg-bg-subtle hover:text-text",
+        current ? "bg-surface text-text shadow-[var(--ae-shadow-xs),inset_0_0_0_1px_var(--ae-border)]" : "text-text-muted hover:bg-fill hover:text-text",
       )}
     >
       {icon}

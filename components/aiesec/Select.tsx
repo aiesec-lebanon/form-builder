@@ -1,6 +1,8 @@
 'use client';
-import * as React from 'react';
-import { Field, type FieldBaseProps } from './Field';
+import { Button, FieldError, Label, ListBox, ListBoxItem, Popover, Select as AriaSelect, SelectValue, Text } from 'react-aria-components';
+import type { FieldBaseProps } from './Field';
+import { ThemePortal, useThemeScope } from './hooks';
+import { Icon } from './icons';
 import { cx } from './utils';
 
 export interface SelectOption {
@@ -9,57 +11,93 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps extends FieldBaseProps, Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
-  /** The choices. Or pass `<option>` children. */
-  options?: SelectOption[];
-  /** First, unselectable line shown until a choice is made, e.g. "Choose a programme". */
+export interface SelectProps extends FieldBaseProps {
+  options: SelectOption[];
+  /** Shown until a choice is made, e.g. "Choose a programme". */
   placeholder?: string;
+  /** Selected value (controlled). */
+  value?: string | null;
+  /** Initial value (uncontrolled). */
+  defaultValue?: string;
+  onChange?: (value: string | null) => void;
+  /** Submits the value with a form under this name. */
+  name?: string;
+  disabled?: boolean;
+  required?: boolean;
   /** 32, 40 or 48px tall. Default `md`. */
   size?: 'sm' | 'md' | 'lg';
+  id?: string;
+  className?: string;
 }
 
-/** A labelled native select: accessible, mobile-friendly, styled to match the inputs. */
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, hideLabel, hint, error, optional, options, placeholder, size = 'md', id, className, children, value, defaultValue, disabled, ...rest },
-  ref,
-) {
-  const autoId = React.useId();
-  const selectId = id ?? autoId;
-  const uncontrolledDefault = value === undefined && defaultValue === undefined && placeholder ? '' : defaultValue;
-
+/** A labelled select with a styled list popover: full keyboard, typeahead and screen-reader support (React Aria). */
+export function Select({
+  label,
+  hideLabel,
+  hint,
+  error,
+  optional,
+  options,
+  placeholder,
+  value,
+  defaultValue,
+  onChange,
+  name,
+  disabled,
+  required,
+  size = 'md',
+  id,
+  className,
+}: SelectProps) {
+  const [ref, scope] = useThemeScope<HTMLDivElement>();
   return (
-    <Field id={selectId} label={label} hideLabel={hideLabel} hint={hint} error={error} optional={optional} className={className}>
-      {(describedBy) => (
-        <div
-          className={cx('ae-input', 'ae-input--select', size !== 'md' && `ae-input--${size}`)}
-          data-invalid={error ? 'true' : undefined}
-          data-disabled={disabled ? 'true' : undefined}
-        >
-          <select
-            ref={ref}
-            id={selectId}
-            className={cx('ae-input__control', size === 'sm' ? 'ae-body-sm' : 'ae-body')}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy}
-            value={value}
-            defaultValue={uncontrolledDefault}
-            disabled={disabled}
-            {...rest}
-          >
-            {placeholder && (
-              <option value="" disabled>
-                {placeholder}
-              </option>
-            )}
-            {options?.map((o) => (
-              <option key={o.value} value={o.value} disabled={o.disabled}>
-                {o.label}
-              </option>
-            ))}
-            {children}
-          </select>
-        </div>
+    <AriaSelect
+      ref={ref}
+      id={id}
+      className={cx('ae-field', className)}
+      placeholder={placeholder}
+      value={value}
+      defaultValue={defaultValue}
+      onChange={(key) => onChange?.(key === null ? null : String(key))}
+      name={name}
+      isDisabled={disabled}
+      isRequired={required}
+      isInvalid={error ? true : undefined}
+    >
+      <Label className={cx('ae-field__label', 'ae-label', hideLabel && 'ae-sr-only')}>
+        {label}
+        {optional && <span className="ae-field__optional"> (optional)</span>}
+      </Label>
+      <Button className={cx('ae-input', 'ae-select', size !== 'md' && `ae-input--${size}`)}>
+        <SelectValue className={cx('ae-select__value', size === 'sm' ? 'ae-body-sm' : 'ae-body')}>
+          {({ isPlaceholder, selectedText, defaultChildren }) => (isPlaceholder ? defaultChildren : selectedText)}
+        </SelectValue>
+        <Icon name="chevron-down" size={20} className="ae-select__chevron" />
+      </Button>
+      {hint && (
+        <Text slot="description" className="ae-field__hint ae-body-sm">
+          {hint}
+        </Text>
       )}
-    </Field>
+      <FieldError className="ae-field__error ae-body-sm">
+        <Icon name="circle-alert" size={16} />
+        <span>
+          <span className="ae-sr-only">Error: </span>
+          {error}
+        </span>
+      </FieldError>
+      <ThemePortal scope={scope}>
+        <Popover className="ae-popover" offset={6}>
+          <ListBox className="ae-listbox" items={options}>
+            {(option) => (
+              <ListBoxItem id={option.value} textValue={option.label} isDisabled={option.disabled} className="ae-option ae-body">
+                <span className="ae-option__label">{option.label}</span>
+                <Icon name="check" size={16} className="ae-option__check" />
+              </ListBoxItem>
+            )}
+          </ListBox>
+        </Popover>
+      </ThemePortal>
+    </AriaSelect>
   );
-});
+}

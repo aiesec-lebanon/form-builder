@@ -112,7 +112,7 @@ export function DestinationCard({ formId, destination, isOnlyResponseDestination
   return (
     <article aria-busy={busy || undefined} className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-text">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-fill text-text">
           <Icon size={20} aria-hidden="true" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">

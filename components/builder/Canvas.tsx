@@ -49,6 +49,9 @@ function PageDropZone({ page, children }: { page: Page; children: React.ReactNod
 export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate, onDelete, onOpenSettings }: Props) {
   const { doc, selectedId, focusId } = state;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  // dnd-kit numbers its accessibility ids with a global counter, which differs
+  // between the server and the browser; a React id keeps hydration in sync.
+  const dndId = React.useId();
   const numbers = React.useMemo(() => questionNumbers(doc), [doc]);
   const logicLabels = React.useMemo(() => {
     const labels = new Map<string, string>();
@@ -94,7 +97,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
         </div>
       </section>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         {doc.pages.map((page, pageIndex) => (
           <section key={page.id} aria-label={multiPage ? `Page ${pageIndex + 1}` : "Questions"} className="flex flex-col gap-3">
             {multiPage && (
@@ -108,7 +111,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
                     type="button"
                     onClick={() => dispatch({ type: "removePage", id: page.id })}
                     aria-label={`Remove page ${pageIndex + 1} (its questions stay)`}
-                    className="inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:bg-bg-subtle hover:text-danger-text"
+                    className="inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:bg-fill hover:text-danger-text"
                   >
                     <Trash2 size={16} aria-hidden="true" />
                   </button>
@@ -130,7 +133,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
                       type="button"
                       aria-expanded={logicOpen === page.id}
                       onClick={() => setLogicOpen((current) => (current === page.id ? null : page.id))}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 ae-body-sm text-text-muted hover:bg-bg-subtle hover:text-text"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 ae-body-sm text-text-muted hover:bg-fill hover:text-text"
                     >
                       <GitBranch size={16} aria-hidden="true" />
                       {page.visibleIf ? "Edit page logic" : "Show this page only when…"}
@@ -183,7 +186,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
         ))}
       </DndContext>
 
-      <button type="button" onClick={onAddPage} className="mt-2 inline-flex h-10 items-center gap-2 self-center rounded-md px-3 ae-body-sm text-text-muted hover:bg-bg-subtle hover:text-text">
+      <button type="button" onClick={onAddPage} className="mt-2 inline-flex h-10 items-center gap-2 self-center rounded-md px-3 ae-body-sm text-text-muted hover:bg-fill hover:text-text">
         <FilePlus2 size={16} aria-hidden="true" />
         Add a page
       </button>

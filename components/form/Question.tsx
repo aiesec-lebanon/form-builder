@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, Star } from "lucide-react";
+import dynamic from "next/dynamic";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
@@ -13,6 +14,19 @@ import { linkify } from "./linkify";
 
 // One question as respondents see it. Built on design-system classes, sized
 // for touch (48 px controls), optional questions marked "(optional)".
+
+// Dropdown and date questions use React Aria (as the design system does); they
+// load on demand so forms without them stay light.
+function ControlLoading() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy="true">
+      <span className="ae-skeleton h-6 w-48" />
+      <span className="ae-skeleton h-12 max-w-xl rounded-md" />
+    </div>
+  );
+}
+const DropdownQuestion = dynamic(() => import("./DropdownQuestion").then((module) => module.DropdownQuestion), { loading: ControlLoading });
+const DateQuestion = dynamic(() => import("./DateQuestion").then((module) => module.DateQuestion), { loading: ControlLoading });
 
 type Props = {
   field: Field;
@@ -78,7 +92,21 @@ const choiceRow = (checked: boolean, compact = false) =>
     "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
   );
 
-function ChoiceControl({ field, value, onChange, describedBy, error, optionOrder }: { field: FieldOf<"single_choice"> | FieldOf<"multi_choice">; value: unknown; onChange: (value: unknown) => void; describedBy?: string; error?: string; optionOrder?: string[] }) {
+function ChoiceControl({
+  field,
+  value,
+  onChange,
+  describedBy,
+  error,
+  optionOrder,
+}: {
+  field: FieldOf<"single_choice"> | FieldOf<"multi_choice">;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  describedBy?: string;
+  error?: string;
+  optionOrder?: string[];
+}) {
   const choice = asChoice(value);
   const multiple = field.type === "multi_choice";
   const name = `q-${field.id}`;
@@ -175,7 +203,7 @@ function GridControl({ field, value, onChange, error, baseId }: { field: GridFie
     onChange(next);
   };
   // After a failed submit, point at the rows that still need an answer.
-  const missing = (rowId: string) => Boolean(error) && field.required && !(grid[rowId]?.length);
+  const missing = (rowId: string) => Boolean(error) && field.required && !grid[rowId]?.length;
 
   return (
     <>
@@ -203,7 +231,7 @@ function GridControl({ field, value, onChange, error, baseId }: { field: GridFie
                   </th>
                   {field.columns.map((column, columnIndex) => (
                     <td key={column.id} className="p-0 text-center">
-                      <label className="inline-flex size-12 cursor-pointer items-center justify-center rounded-md hover:bg-bg-subtle">
+                      <label className="inline-flex size-12 cursor-pointer items-center justify-center rounded-md hover:bg-fill">
                         <input
                           type={inputType}
                           name={`${baseId}-t-${row.id}`}
@@ -236,14 +264,7 @@ function GridControl({ field, value, onChange, error, baseId }: { field: GridFie
                   const checked = picked.includes(column.id);
                   return (
                     <label key={column.id} className={choiceRow(checked, true)}>
-                      <input
-                        type={inputType}
-                        name={`${baseId}-m-${row.id}`}
-                        value={column.id}
-                        checked={checked}
-                        onChange={(event) => set(row.id, column.id, event.target.checked)}
-                        className={inputClass}
-                      />
+                      <input type={inputType} name={`${baseId}-m-${row.id}`} value={column.id} checked={checked} onChange={(event) => set(row.id, column.id, event.target.checked)} className={inputClass} />
                       <span className="ae-body text-text">{nameOf(column, columnIndex, "Column")}</span>
                     </label>
                   );
@@ -276,7 +297,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
   }
 
   const textInput = (type: string, extra: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
-    <div className={cx("ae-input ae-input--lg max-w-xl", type === "date" && "ae-input--date")} data-invalid={invalid ? "true" : undefined}>
+    <div className="ae-input ae-input--lg max-w-xl" data-invalid={invalid ? "true" : undefined}>
       <input
         id={inputId}
         type={type}
@@ -326,7 +347,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
     case "number":
       return labelled(textInput("text", { placeholder: field.placeholder || undefined, inputMode: field.integer ? "numeric" : "decimal" }));
     case "date":
-      return labelled(textInput("date", { min: field.min ?? undefined, max: field.max ?? undefined }));
+      return <DateQuestion field={field} value={text} error={error} onChange={onChange} id={id} />;
     case "time":
       return labelled(textInput("time"));
     case "long_text":
@@ -352,30 +373,8 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
           )}
         </div>,
       );
-    case "dropdown": {
-      const choice = asChoice(value);
-      return labelled(
-        <div className="ae-input ae-input--select ae-input--lg max-w-xl" data-invalid={invalid ? "true" : undefined}>
-          <select
-            id={inputId}
-            value={choice.optionIds[0] ?? ""}
-            onChange={(event) => onChange(event.target.value ? { optionIds: [event.target.value], other: null } : emptyChoice)}
-            onBlur={onBlur}
-            aria-invalid={invalid}
-            aria-describedby={describedBy}
-            aria-required={field.required || undefined}
-            className="ae-input__control ae-body"
-          >
-            <option value="">Choose an option</option>
-            {field.options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>,
-      );
-    }
+    case "dropdown":
+      return <DropdownQuestion field={field} value={asChoice(value)} error={error} onChange={onChange} id={id} />;
     case "single_choice":
     case "multi_choice":
       return grouped(<ChoiceControl field={field} value={value} onChange={onChange} describedBy={describedBy} error={error} optionOrder={optionOrder} />);
@@ -394,7 +393,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
                   key={step}
                   className={cx(
                     "inline-flex size-12 cursor-pointer items-center justify-center rounded-md border ae-label transition-colors duration-150",
-                    checked ? "border-primary bg-primary text-on-primary" : "border-border-strong bg-surface text-text hover:bg-bg-subtle",
+                    checked ? "border-primary bg-primary text-on-primary" : "border-border-strong bg-surface text-text hover:bg-fill",
                     "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
                   )}
                 >

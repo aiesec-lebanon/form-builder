@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import { useIsoLayoutEffect } from './hooks';
 import { cx } from './utils';
 
 export interface TabItem {
@@ -23,12 +24,23 @@ export interface TabsProps {
   className?: string;
 }
 
-/** Switches between sibling views of the same object. Arrow keys move between tabs, Home and End jump. */
+/** Switches between sibling views of the same object. Arrow keys move between tabs, Home and End jump; the indicator slides to the selected tab. */
 export function Tabs({ label, items, value, defaultValue, onChange, className }: TabsProps) {
   const baseId = React.useId();
   const [inner, setInner] = React.useState(defaultValue ?? items.find((i) => !i.disabled)?.id);
   const selected = value ?? inner;
   const tabRefs = React.useRef(new Map<string, HTMLButtonElement>());
+  const [bar, setBar] = React.useState<{ x: number; w: number } | null>(null);
+
+  useIsoLayoutEffect(() => {
+    const tab = selected ? tabRefs.current.get(selected) : undefined;
+    if (!tab) return;
+    const measure = () => setBar({ x: tab.offsetLeft, w: tab.offsetWidth });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(tab);
+    return () => observer.disconnect();
+  }, [selected]);
 
   const select = (id: string) => {
     if (value === undefined) setInner(id);
@@ -77,6 +89,7 @@ export function Tabs({ label, items, value, defaultValue, onChange, className }:
             </button>
           );
         })}
+        <span className="ae-tabs__indicator" aria-hidden="true" style={(bar ? { '--_x': `${bar.x}px`, '--_w': `${bar.w}px` } : { opacity: 0 }) as React.CSSProperties} />
       </div>
       {items.map((item) => (
         <div

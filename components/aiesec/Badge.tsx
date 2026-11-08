@@ -6,7 +6,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: Tone;
   /** `soft` (tint, default) or `solid` (status only; programme and accent badges stay soft). */
   variant?: 'soft' | 'solid';
-  /** Programme badge: the programme's colours (sets data-program, forces soft). */
+  /** Programme badge: a neutral badge with the programme's colour swatch (sets data-program). */
   program?: ProgramId;
   /** Leading icon, e.g. `<Icon name="check" size={16} />`. */
   icon?: React.ReactNode;
@@ -17,7 +17,11 @@ export function Badge({ tone = 'neutral', variant = 'soft', program, icon, class
   const effectiveTone: Tone = program ? 'accent' : tone;
   const solid = variant === 'solid' && effectiveTone !== 'accent';
   return (
-    <span className={cx('ae-badge', 'ae-caption', `ae-tone-${effectiveTone}`, solid && 'ae-badge--solid', className)} data-program={program} {...rest}>
+    <span
+      className={cx('ae-badge', 'ae-caption', `ae-tone-${effectiveTone}`, solid && 'ae-badge--solid', program && 'ae-badge--program', className)}
+      data-program={program}
+      {...rest}
+    >
       {icon}
       {children}
     </span>

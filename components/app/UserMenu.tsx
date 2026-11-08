@@ -29,7 +29,7 @@ export function UserMenu({ user, theme: initialTheme }: Props) {
     <>
       <Menu
         label="Account menu"
-        triggerClassName="inline-flex rounded-full p-0.5 hover:bg-bg-subtle"
+        triggerClassName="inline-flex rounded-full p-0.5 hover:bg-fill"
         trigger={<Avatar name={user.fullName} src={user.photoUrl ?? undefined} size="md" decorative />}
         minWidth={248}
         items={[

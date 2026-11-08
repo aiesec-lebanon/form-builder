@@ -121,7 +121,7 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
     cx(
       "flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left ae-body-sm no-underline outline-none",
       tone === "danger" ? "text-danger-text" : "text-text",
-      disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-bg-subtle focus:bg-primary-soft",
+      disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-fill focus:bg-fill",
     );
 
   const menu = open ? (

@@ -56,13 +56,7 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
                 checked ? "border-primary bg-primary-soft text-primary-text" : "border-border text-text hover:border-border-strong",
               )}
             >
-              <input
-                type="radio"
-                name={name}
-                checked={checked}
-                className="sr-only"
-                onChange={() => onChange(option.id === "always" ? null : (value ?? defaultCondition(sources[sources.length - 1])))}
-              />
+              <input type="radio" name={name} checked={checked} className="sr-only" onChange={() => onChange(option.id === "always" ? null : (value ?? defaultCondition(sources[sources.length - 1])))} />
               {option.label}
             </label>
           );
@@ -73,11 +67,11 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
         <div className="flex flex-col gap-3">
           <Select
             label="Question"
-            value={source ? source.id : ""}
+            value={source ? source.id : null}
             placeholder="Choose a question"
             options={sources.map((field, index) => ({ value: field.id, label: field.label.trim() || `Question ${index + 1}` }))}
-            onChange={(event) => {
-              const next = sources.find((field) => field.id === event.target.value);
+            onChange={(id) => {
+              const next = sources.find((field) => field.id === id);
               if (next) onChange(defaultCondition(next));
             }}
             error={source ? undefined : "That question was moved or deleted. Choose another."}
@@ -87,7 +81,7 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
               label="Rule"
               value={value.operator}
               options={operatorsFor(source).map((operator) => ({ value: operator, label: OPERATOR_TEXT[operator] }))}
-              onChange={(event) => onChange({ ...value, operator: event.target.value as ConditionOperator })}
+              onChange={(operator) => operator && onChange({ ...value, operator: operator as ConditionOperator })}
             />
           )}
           {source &&
@@ -95,10 +89,10 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
             (isChoiceField(source) ? (
               <Select
                 label="Answer"
-                value={value.value}
+                value={value.value || null}
                 placeholder="Choose an answer"
                 options={source.options.map((option, index) => ({ value: option.id, label: option.label.trim() || `Option ${index + 1}` }))}
-                onChange={(event) => onChange({ ...value, value: event.target.value })}
+                onChange={(optionId) => optionId && onChange({ ...value, value: optionId })}
               />
             ) : (
               <TextField label="Answer" value={value.value} maxLength={500} onChange={(event) => onChange({ ...value, value: event.target.value })} />

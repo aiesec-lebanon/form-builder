@@ -48,16 +48,11 @@ export function TemplatePicker({ autoFocusBlank = false }: { autoFocusBlank?: bo
               onClick={() => create(template.id)}
               className={cx(
                 "group flex h-full w-full items-start gap-4 rounded-lg border p-4 text-left transition-colors duration-150",
-                template.id === "blank" ? "border-primary bg-primary-soft" : "border-border bg-surface hover:border-border-strong hover:bg-bg-subtle",
+                "border-border bg-surface hover:border-border-strong hover:bg-fill",
                 pending && !busy && "opacity-45",
               )}
             >
-              <span
-                className={cx(
-                  "inline-flex size-10 shrink-0 items-center justify-center rounded-md",
-                  template.id === "blank" ? "bg-primary text-on-primary" : "bg-bg-subtle text-primary-text group-hover:bg-surface",
-                )}
-              >
+              <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-fill text-text group-hover:bg-surface">
                 {busy ? <Spinner size="sm" label="Creating form" /> : <Icon size={20} aria-hidden />}
               </span>
               <span className="flex flex-col gap-1">

@@ -124,12 +124,12 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
       return (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Select label="From" value={String(field.min)} options={[0, 1].map((value) => ({ value: String(value), label: String(value) }))} onChange={(event) => onChange({ min: Number(event.target.value) as 0 | 1 })} />
+            <Select label="From" value={String(field.min)} options={[0, 1].map((value) => ({ value: String(value), label: String(value) }))} onChange={(value) => value && onChange({ min: Number(value) as 0 | 1 })} />
             <Select
               label="To"
               value={String(field.max)}
               options={Array.from({ length: 9 }, (_, index) => index + 2).map((value) => ({ value: String(value), label: String(value) }))}
-              onChange={(event) => onChange({ max: Number(event.target.value) })}
+              onChange={(value) => value && onChange({ max: Number(value) })}
             />
           </div>
           <TextField label="Low end label" optional placeholder="Not likely" value={field.minLabel} maxLength={60} onChange={(event) => onChange({ minLabel: event.target.value })} />
@@ -142,7 +142,7 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
           label="Number of stars"
           value={String(field.max)}
           options={Array.from({ length: 8 }, (_, index) => index + 3).map((value) => ({ value: String(value), label: String(value) }))}
-          onChange={(event) => onChange({ max: Number(event.target.value) })}
+          onChange={(value) => value && onChange({ max: Number(value) })}
         />
       );
     case "file_upload":
@@ -153,13 +153,13 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
               label="Files per person"
               value={String(field.maxFiles)}
               options={Array.from({ length: 10 }, (_, index) => index + 1).map((value) => ({ value: String(value), label: String(value) }))}
-              onChange={(event) => onChange({ maxFiles: Number(event.target.value) })}
+              onChange={(value) => value && onChange({ maxFiles: Number(value) })}
             />
             <Select
               label="Size limit"
               value={String(field.maxSizeMb)}
               options={[1, 5, 10, 25, 50, 100].map((value) => ({ value: String(value), label: `${value} MB` }))}
-              onChange={(event) => onChange({ maxSizeMb: Number(event.target.value) })}
+              onChange={(value) => value && onChange({ maxSizeMb: Number(value) })}
             />
           </div>
           <fieldset className="ae-fieldset">
@@ -225,7 +225,7 @@ export function Inspector({ field, onChange, questionCount, pageCount, doc }: { 
                 <dt className="text-text">{action}</dt>
                 <dd className="flex gap-1">
                   {keys.split(" ").map((key) => (
-                    <kbd key={key} className="rounded-sm border border-border bg-bg-subtle px-1.5 py-0.5 ae-caption text-text-muted">
+                    <kbd key={key} className="rounded-sm border border-border bg-fill px-1.5 py-0.5 ae-caption text-text-muted">
                       {key}
                     </kbd>
                   ))}
@@ -242,7 +242,7 @@ export function Inspector({ field, onChange, questionCount, pageCount, doc }: { 
   return (
     <div className="flex flex-col gap-5 p-5">
       <div className="flex items-center gap-3">
-        <span className="inline-flex size-9 items-center justify-center rounded-md bg-primary-soft text-primary-text">
+        <span className="inline-flex size-9 items-center justify-center rounded-md bg-fill text-text">
           <Icon size={18} aria-hidden="true" />
         </span>
         <div className="flex flex-col">
