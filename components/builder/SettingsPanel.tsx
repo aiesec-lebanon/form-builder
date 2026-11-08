@@ -156,6 +156,7 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
           }}
         />
         <Switch label="Show a progress bar" hint="Only appears on forms with more than one page." checked={settings.showProgressBar} onChange={(event) => onSettings({ showProgressBar: event.target.checked })} />
+        <Switch label="Number the questions" hint="Shows 1, 2, 3… before each question. Text blocks aren't numbered." checked={settings.numberQuestions} onChange={(event) => onSettings({ numberQuestions: event.target.checked })} />
       </Section>
 
       <Section title="Look" description="The accent colours the form's buttons, choices and top bar.">

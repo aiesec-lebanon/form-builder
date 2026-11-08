@@ -5,7 +5,8 @@ import * as React from "react";
 
 import { Select, TextField, cx } from "@/components/aiesec";
 import { conditionSources, describeCondition, needsValue, operatorsFor } from "@/lib/forms/logic";
-import { isChoiceField, type Condition, type ConditionOperator, type Field, type FormDocument } from "@/lib/forms/schema";
+import { questionName, questionNumbers, shorten } from "@/lib/forms/numbering";
+import { allFields, isChoiceField, type Condition, type ConditionOperator, type Field, type FormDocument } from "@/lib/forms/schema";
 
 const OPERATOR_TEXT: Record<ConditionOperator, string> = {
   is: "is",
@@ -32,6 +33,7 @@ type Props = {
 export function LogicEditor({ doc, target, value, onChange, noun = "question" }: Props) {
   const sources = conditionSources(doc, target);
   const source = value ? sources.find((field) => field.id === value.fieldId) : undefined;
+  const numbers = questionNumbers(allFields(doc));
   const name = React.useId();
 
   if (sources.length === 0) {
@@ -69,7 +71,7 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
             label="Question"
             value={source ? source.id : null}
             placeholder="Choose a question"
-            options={sources.map((field, index) => ({ value: field.id, label: field.label.trim() || `Question ${index + 1}` }))}
+            options={sources.map((field) => ({ value: field.id, label: questionName(field, numbers.get(field.id)) }))}
             onChange={(id) => {
               const next = sources.find((field) => field.id === id);
               if (next) onChange(defaultCondition(next));
@@ -91,7 +93,7 @@ export function LogicEditor({ doc, target, value, onChange, noun = "question" }:
                 label="Answer"
                 value={value.value || null}
                 placeholder="Choose an answer"
-                options={source.options.map((option, index) => ({ value: option.id, label: option.label.trim() || `Option ${index + 1}` }))}
+                options={source.options.map((option, index) => ({ value: option.id, label: shorten(option.label, 60) || `Option ${index + 1}` }))}
                 onChange={(optionId) => optionId && onChange({ ...value, value: optionId })}
               />
             ) : (

@@ -4,6 +4,7 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { Button, ComboBox, FieldError, Group, Input, Label, ListBox, ListBoxItem, Popover, Select, SelectValue, Text } from "react-aria-components";
 
 import { ThemePortal, useThemeScope } from "@/components/aiesec/hooks";
+import { RequiredMark } from "@/components/app/RequiredMark";
 import type { ChoiceValue } from "@/lib/forms/fields";
 import type { FieldOf } from "@/lib/forms/schema";
 
@@ -24,14 +25,16 @@ type Props = {
   onChange: (value: ChoiceValue) => void;
   /** Wrapper id, used to scroll to the question from the error summary. */
   id: string;
+  number?: number;
 };
 
-function Heading({ field }: { field: FieldOf<"dropdown"> }) {
+function Heading({ field, number }: { field: FieldOf<"dropdown">; number?: number }) {
   return (
     <div className="flex flex-col gap-1">
       <Label className="ae-body-lg font-bold text-text">
+        {number ? <span className="fb-qnum">{number}.</span> : null}
         {field.label || "Untitled question"}
-        {!field.required && <span className="font-normal text-text-muted"> (optional)</span>}
+        {field.required && <RequiredMark />}
       </Label>
       {field.description && (
         <Text slot="description" className="block whitespace-pre-line ae-body-sm text-text-muted">
@@ -71,7 +74,7 @@ function Options({ field, scope }: { field: FieldOf<"dropdown">; scope: HTMLElem
   );
 }
 
-export function DropdownQuestion({ field, value, error, onChange, id }: Props) {
+export function DropdownQuestion({ field, value, error, onChange, id, number }: Props) {
   const [ref, scope] = useThemeScope<HTMLDivElement>();
   const selected = value.optionIds[0];
   const known = selected !== undefined && field.options.some((option) => option.id === selected);
@@ -91,7 +94,7 @@ export function DropdownQuestion({ field, value, error, onChange, id }: Props) {
         isRequired={field.required}
         validationBehavior="aria"
       >
-        <Heading field={field} />
+        <Heading field={field} number={number} />
         <Group className="ae-input ae-input--lg max-w-xl">
           <Input data-focus-target="" placeholder="Type to search" className="ae-input__control ae-body" />
           <Button className="ae-input__action" aria-label="Show all options">
@@ -116,7 +119,7 @@ export function DropdownQuestion({ field, value, error, onChange, id }: Props) {
       isRequired={field.required}
       validationBehavior="aria"
     >
-      <Heading field={field} />
+      <Heading field={field} number={number} />
       <Button data-focus-target="" className="ae-input ae-input--lg ae-select max-w-xl">
         <SelectValue className="ae-select__value ae-body">{({ isPlaceholder, selectedText, defaultChildren }) => (isPlaceholder ? defaultChildren : selectedText)}</SelectValue>
         <ChevronDown size={20} aria-hidden="true" className="ae-select__chevron shrink-0" />

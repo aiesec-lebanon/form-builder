@@ -25,6 +25,8 @@ import {
 import { ThemePortal, useThemeScope } from "@/components/aiesec/hooks";
 import type { FieldOf } from "@/lib/forms/schema";
 
+import { RequiredMark } from "@/components/app/RequiredMark";
+
 import { linkify } from "./linkify";
 
 // The design system's DatePicker (type the date in the reader's locale or pick
@@ -37,6 +39,7 @@ type Props = {
   error?: string;
   onChange: (value: string) => void;
   id: string;
+  number?: number;
 };
 
 /** A CalendarDate for a YYYY-MM-DD string; null for empty or malformed values (e.g. an old draft). */
@@ -49,7 +52,7 @@ function toDate(iso: string | null | undefined): CalendarDate | null {
   }
 }
 
-export function DateQuestion({ field, value, error, onChange, id }: Props) {
+export function DateQuestion({ field, value, error, onChange, id, number }: Props) {
   const [ref, scope] = useThemeScope<HTMLDivElement>();
 
   return (
@@ -67,8 +70,9 @@ export function DateQuestion({ field, value, error, onChange, id }: Props) {
     >
       <div className="flex flex-col gap-1">
         <Label className="ae-body-lg font-bold text-text">
+          {number ? <span className="fb-qnum">{number}.</span> : null}
           {field.label || "Untitled question"}
-          {!field.required && <span className="font-normal text-text-muted"> (optional)</span>}
+          {field.required && <RequiredMark />}
         </Label>
         {field.description && (
           <Text slot="description" className="block whitespace-pre-line ae-body-sm text-text-muted">

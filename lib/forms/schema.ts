@@ -212,6 +212,8 @@ export const settingsSchema = z.object({
   confirmationMessage: z.string().max(2000).default(""),
   redirectUrl: httpsUrl.nullable().default(null),
   showProgressBar: z.boolean().default(true),
+  /** "1." before each question respondents see (text blocks aren't numbered). */
+  numberQuestions: z.boolean().default(true),
   allowAnotherResponse: z.boolean().default(false),
   access: accessSchema.default(accessSchema.parse({})),
 });

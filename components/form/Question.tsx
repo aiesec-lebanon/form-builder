@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
+import { RequiredMark } from "@/components/app/RequiredMark";
 import type { ChoiceValue, GridValue } from "@/lib/forms/fields";
 import { OTHER_LABEL } from "@/lib/forms/fields/choice";
 import type { ChoiceField, Field, FieldOf, GridField, Option } from "@/lib/forms/schema";
@@ -13,7 +14,7 @@ import { FileField, type UploadContext } from "./FileField";
 import { linkify } from "./linkify";
 
 // One question as respondents see it. Built on design-system classes, sized
-// for touch (48 px controls), optional questions marked "(optional)".
+// for touch (48 px controls), numbered, required questions marked with a red asterisk.
 
 // Dropdown and date questions use React Aria (as the design system does); they
 // load on demand so forms without them stay light.
@@ -36,6 +37,8 @@ type Props = {
   onBlur?: () => void;
   optionOrder?: string[];
   upload: UploadContext;
+  /** Shown as "3." before the label when the form numbers its questions. */
+  number?: number;
 };
 
 const emptyChoice: ChoiceValue = { optionIds: [], other: null };
@@ -52,12 +55,13 @@ function orderedOptions(field: ChoiceField, order?: string[]): Option[] {
   return ordered.length === field.options.length ? ordered : field.options;
 }
 
-function Title({ field, as: As = "label", htmlFor }: { field: Field; as?: "label" | "legend" | "p"; htmlFor?: string }) {
-  const optional = !field.required && field.type !== "statement";
+function Title({ field, as: As = "label", htmlFor, number }: { field: Field; as?: "label" | "legend" | "p"; htmlFor?: string; number?: number }) {
   return (
     <As {...(As === "label" ? { htmlFor } : {})} className={cx("ae-body-lg font-bold text-text", As === "legend" && "float-left w-full p-0")}>
+      {number ? <span className="fb-qnum">{number}.</span> : null}
       {field.label || "Untitled question"}
-      {optional && <span className="font-normal text-text-muted"> (optional)</span>}
+      {/* Labelled controls carry aria-required; groups say it in their legend. */}
+      {field.required && <RequiredMark announce={As !== "label"} />}
     </As>
   );
 }
@@ -278,7 +282,7 @@ function GridControl({ field, value, onChange, error, baseId }: { field: GridFie
   );
 }
 
-export function Question({ field, value, error, onChange, onBlur, optionOrder, upload }: Props) {
+export function Question({ field, value, error, onChange, onBlur, optionOrder, upload, number }: Props) {
   const id = `q-${field.id}`;
   const inputId = `${id}-input`;
   const descId = `${id}-desc`;
@@ -316,7 +320,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
   const labelled = (control: React.ReactNode) => (
     <div id={id} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <Title field={field} htmlFor={inputId} />
+        <Title field={field} htmlFor={inputId} number={number} />
         <Description field={field} id={descId} />
       </div>
       {control}
@@ -326,7 +330,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
 
   const grouped = (control: React.ReactNode) => (
     <fieldset id={id} className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0" aria-describedby={describedBy} aria-invalid={invalid}>
-      <Title field={field} as="legend" />
+      <Title field={field} as="legend" number={number} />
       <div className="flex flex-col gap-1">
         <Description field={field} id={descId} />
       </div>
@@ -347,7 +351,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
     case "number":
       return labelled(textInput("text", { placeholder: field.placeholder || undefined, inputMode: field.integer ? "numeric" : "decimal" }));
     case "date":
-      return <DateQuestion field={field} value={text} error={error} onChange={onChange} id={id} />;
+      return <DateQuestion field={field} value={text} error={error} onChange={onChange} id={id} number={number} />;
     case "time":
       return labelled(textInput("time"));
     case "long_text":
@@ -374,7 +378,7 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
         </div>,
       );
     case "dropdown":
-      return <DropdownQuestion field={field} value={asChoice(value)} error={error} onChange={onChange} id={id} />;
+      return <DropdownQuestion field={field} value={asChoice(value)} error={error} onChange={onChange} id={id} number={number} />;
     case "single_choice":
     case "multi_choice":
       return grouped(<ChoiceControl field={field} value={value} onChange={onChange} describedBy={describedBy} error={error} optionOrder={optionOrder} />);

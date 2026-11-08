@@ -7,6 +7,7 @@ import * as React from "react";
 
 import { Switch, cx } from "@/components/aiesec";
 import { Menu } from "@/components/app/Menu";
+import { RequiredMark } from "@/components/app/RequiredMark";
 import { compatibleTypes, definitionOf } from "@/lib/forms/fields";
 import { isChoiceField, isGridField, LIMITS, type Field } from "@/lib/forms/schema";
 
@@ -78,15 +79,22 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
         <div className="flex flex-col gap-4 p-4 pt-6 sm:p-6 sm:pt-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <InlineText
-                value={field.label}
-                onChange={(label) => update({ label })}
-                label={isStatement ? "Heading" : `Question ${number ?? ""}`.trim()}
-                placeholder={isStatement ? "Heading" : "Question"}
-                autoFocus={autoFocus}
-                maxLength={500}
-                className="ae-h4"
-              />
+              <div className="flex items-baseline">
+                {number && (
+                  <span aria-hidden="true" className="fb-qnum ae-h4">
+                    {number}.
+                  </span>
+                )}
+                <InlineText
+                  value={field.label}
+                  onChange={(label) => update({ label })}
+                  label={isStatement ? "Heading" : `Question ${number ?? ""}`.trim()}
+                  placeholder={isStatement ? "Heading" : "Question"}
+                  autoFocus={autoFocus}
+                  maxLength={500}
+                  className="ae-h4 min-w-0 flex-1"
+                />
+              </div>
               <InlineText
                 value={field.description}
                 onChange={(description) => update({ description })}
@@ -183,7 +191,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
         <div
           role="button"
           tabIndex={0}
-          aria-label={`Edit ${number ? `question ${number}` : "text block"}: ${title}`}
+          aria-label={`Edit ${number ? `question ${number}` : "text block"}: ${title}${field.required && !isStatement ? " (required)" : ""}`}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
@@ -195,15 +203,9 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-col gap-1">
               <p className={cx(isStatement ? "ae-h4" : "ae-label", field.label.trim() ? "text-text" : "text-text-muted")}>
+                {number && <span className="fb-qnum">{number}.</span>}
                 {title}
-                {field.required && !isStatement && (
-                  <>
-                    <span aria-hidden="true" className="ml-1 text-danger-text">
-                      *
-                    </span>
-                    <span className="sr-only"> (required)</span>
-                  </>
-                )}
+                {field.required && !isStatement && <RequiredMark />}
               </p>
               {field.description && <p className="line-clamp-2 whitespace-pre-line ae-body-sm text-text-muted">{field.description}</p>}
               <LogicBadge text={logicLabel} />

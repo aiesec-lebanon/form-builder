@@ -6,8 +6,8 @@ import { FilePlus2, GitBranch, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
-import { collectsAnswer } from "@/lib/forms/fields";
-import type { Field, FormDocument, Page } from "@/lib/forms/schema";
+import { questionNumbers } from "@/lib/forms/numbering";
+import type { Field, Page } from "@/lib/forms/schema";
 
 import { describeCondition } from "@/lib/forms/logic";
 
@@ -26,17 +26,6 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-function questionNumbers(doc: FormDocument): Map<string, number> {
-  const numbers = new Map<string, number>();
-  let count = 0;
-  for (const page of doc.pages) {
-    for (const field of page.fields) {
-      if (collectsAnswer(field)) numbers.set(field.id, ++count);
-    }
-  }
-  return numbers;
-}
-
 function PageDropZone({ page, children }: { page: Page; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: page.id });
   return (
@@ -52,7 +41,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
   // dnd-kit numbers its accessibility ids with a global counter, which differs
   // between the server and the browser; a React id keeps hydration in sync.
   const dndId = React.useId();
-  const numbers = React.useMemo(() => questionNumbers(doc), [doc]);
+  const numbers = React.useMemo(() => questionNumbers(doc.pages.flatMap((page) => page.fields)), [doc]);
   const logicLabels = React.useMemo(() => {
     const labels = new Map<string, string>();
     for (const page of doc.pages) for (const field of page.fields) if (field.visibleIf) labels.set(field.id, describeCondition(doc, field.visibleIf));

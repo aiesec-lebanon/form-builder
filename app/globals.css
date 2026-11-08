@@ -152,6 +152,24 @@
     --ae-primary-soft: var(--ae-accent-soft);
     --ae-primary-text: var(--ae-accent-text);
   }
+  /* Design-system fields are one-column grids; with an auto column a long
+     selected value (nowrap) sets the minimum width and pushes the field out of
+     narrow panels. A shrinkable column lets the value truncate instead. */
+  .ae-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Required marker (see RequiredMark) and question numbers. */
+  .fb-required {
+    margin-inline-start: 0.25em;
+    color: var(--ae-danger-text);
+    font-weight: 700;
+    cursor: help;
+  }
+  .fb-qnum {
+    margin-inline-end: 0.4em;
+    color: var(--ae-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
   /* Transparent embeds let the host page's background show through. */
   html:has(.fb-embed-transparent),
   body:has(.fb-embed-transparent) {

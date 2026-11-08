@@ -4,9 +4,11 @@ import { ArrowLeft, CircleCheck, Lock } from "lucide-react";
 import * as React from "react";
 
 import { Alert, Button, cx, Modal, Progress } from "@/components/aiesec";
+import { RequiredLegend } from "@/components/app/RequiredMark";
 import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { computeVisibility, visibleFields } from "@/lib/forms/logic";
+import { questionNumbers } from "@/lib/forms/numbering";
 import { allFields, type FormDocument } from "@/lib/forms/schema";
 import { formThemeAttribute } from "@/lib/forms/theme";
 
@@ -121,6 +123,9 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   const page = pages[currentIndex] ?? { id: "none", title: "", description: "", visibleIf: null, fields: [] };
   const isLast = currentIndex >= pages.length - 1;
   const multiPage = pages.length > 1;
+  // Numbered in the order people meet them, skipping questions logic hides, so there are no gaps.
+  const numbers = React.useMemo(() => (doc.settings.numberQuestions ? questionNumbers(pages.flatMap((item) => item.fields)) : new Map<string, number>()), [pages, doc.settings.numberQuestions]);
+  const hasRequired = React.useMemo(() => allFields(doc).some((field) => field.required && collectsAnswer(field)), [doc]);
 
   useEmbedResize(mode === "embed", rootRef);
 
@@ -396,6 +401,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                   </button>
                 </p>
               )}
+              {hasRequired && questionCount > 0 && <RequiredLegend />}
             </header>
 
             {pageErrors.length > 0 && (
@@ -416,6 +422,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                             control?.focus({ preventScroll: true });
                           }}
                         >
+                          {numbers.has(field.id) ? `${numbers.get(field.id)}. ` : ""}
                           {field.label || "Untitled question"}: {errors[field.id]}
                         </a>
                       </li>
@@ -443,7 +450,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                 </div>
               )}
               {page.fields.map((field) => (
-                <Question key={field.id} field={field} value={answers[field.id]} error={errors[field.id]} onChange={(value) => setAnswer(field.id, value)} optionOrder={optionOrders[field.id]} upload={upload} />
+                <Question key={field.id} field={field} number={numbers.get(field.id)} value={answers[field.id]} error={errors[field.id]} onChange={(value) => setAnswer(field.id, value)} optionOrder={optionOrders[field.id]} upload={upload} />
               ))}
 
               {/* Honeypot for bots; people never see or reach it. */}

@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 
 import { Button, Select, Switch } from "@/components/aiesec";
 import { collectsAnswer } from "@/lib/forms/fields";
+import { questionName, questionNumbers, shorten } from "@/lib/forms/numbering";
 import { allFields, FILE_NAME_SEPARATORS, type Field, type FileNaming, type FormDocument } from "@/lib/forms/schema";
 
 type FileField = Extract<Field, { type: "file_upload" }>;
@@ -21,21 +22,22 @@ export function namingSources(doc: FormDocument, fieldId: string): Field[] {
 
 const labelOf = (field: Field) => field.label.trim() || "Untitled question";
 
-/** What a renamed file looks like, e.g. "[Full name]_[LC]_1.pdf". */
+/** What a renamed file looks like, e.g. "[Full name]_[LC]_1.pdf" (long questions shortened). */
 export function namingPreview(naming: FileNaming, sources: Field[]): string {
   const parts = naming.fieldIds.map((id) => sources.find((field) => field.id === id)).filter((field): field is Field => Boolean(field));
-  return [...parts.map((field) => `[${labelOf(field)}]`), ...(naming.index ? ["1"] : [])].join(naming.separator) + ".pdf";
+  return [...parts.map((field) => `[${shorten(labelOf(field), 24)}]`), ...(naming.index ? ["1"] : [])].join(naming.separator) + ".pdf";
 }
 
 /** Optional naming format for a file question's uploads (applied once a response is sent). */
 export function FileNamingSettings({ field, doc, onChange }: { field: FileField; doc: FormDocument; onChange: (patch: Partial<Field>) => void }) {
   const sources = namingSources(doc, field.id);
+  const numbers = questionNumbers(allFields(doc));
   const naming = field.naming;
   const setNaming = (next: FileNaming | null) => onChange({ naming: next } as Partial<Field>);
   // Parts whose question was deleted or moved below drop out of the editor.
   const parts = naming ? naming.fieldIds.filter((id) => sources.some((source) => source.id === id)) : [];
   const options = (current: string | null) =>
-    sources.filter((source) => source.id === current || !parts.includes(source.id)).map((source) => ({ value: source.id, label: labelOf(source) }));
+    sources.filter((source) => source.id === current || !parts.includes(source.id)).map((source) => ({ value: source.id, label: questionName(source, numbers.get(source.id)) }));
   const setParts = (fieldIds: string[]) => naming && fieldIds.length > 0 && setNaming({ ...naming, fieldIds });
 
   return (
@@ -98,7 +100,7 @@ export function FileNamingSettings({ field, doc, onChange }: { field: FileField;
           />
           <Switch label="Add a number" hint="1, 2, 3… for each file someone uploads here." checked={naming.index} onChange={(event) => setNaming({ ...naming, index: event.target.checked })} />
           <p className="ae-body-sm text-text-muted">
-            Files are renamed when the response is sent, like <span className="font-mono text-text break-all">{namingPreview({ ...naming, fieldIds: parts }, sources)}</span>. Empty answers are left out.
+            Files are renamed when the response is sent, like <span className="font-mono text-text break-all">{namingPreview({ ...naming, fieldIds: parts }, sources)}</span>. Empty answers are left out, so required questions work best.
           </p>
         </>
       )}
