@@ -421,7 +421,17 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
               </div>
             )}
 
-            <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-10" aria-label={doc.title || "Form"}>
+            <form
+              noValidate
+              onSubmit={(event) => {
+                // Enter in a text box on an earlier page moves on instead of sending.
+                if (isLast) return void submit(event);
+                event.preventDefault();
+                next();
+              }}
+              className="flex flex-col gap-10"
+              aria-label={doc.title || "Form"}
+            >
               {(page.title || page.description) && multiPage && (
                 <div className="flex flex-col gap-1 border-b border-border pb-4">
                   {page.title && <h2 className="ae-h3">{page.title}</h2>}
@@ -460,12 +470,14 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                   ) : (
                     <span />
                   )}
+                  {/* Separate keys: reusing one <button> would turn the clicked Next into a submit
+                      button before the browser finishes the click, and send the form. */}
                   {isLast ? (
-                    <Button type="submit" variant="primary" size="lg" loading={status === "sending"} className="w-full sm:w-auto">
+                    <Button key="send" type="submit" variant="primary" size="lg" loading={status === "sending"} className="w-full sm:w-auto">
                       {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
                     </Button>
                   ) : (
-                    <Button variant="primary" size="lg" onClick={next} className="w-full sm:w-auto">
+                    <Button key="next" variant="primary" size="lg" onClick={next} className="w-full sm:w-auto">
                       Next
                     </Button>
                   )}
