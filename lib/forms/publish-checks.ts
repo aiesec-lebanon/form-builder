@@ -1,6 +1,6 @@
 import { collectsAnswer } from "./fields";
 import { conditionProblem } from "./logic";
-import { allFields, isChoiceField, type FormDocument } from "./schema";
+import { allFields, isChoiceField, isGridField, type FormDocument } from "./schema";
 
 // Blocking checks before publishing (spec §8). Messages say how to fix.
 
@@ -34,6 +34,14 @@ export function publishProblems(doc: FormDocument, context: { hasPrimaryDestinat
         const available = field.options.length + (field.allowOther ? 1 : 0);
         if (field.minSelected !== null && field.minSelected > available) add({ id: `min-${field.id}`, message: `${where}: the minimum selection is more than the options available.`, tab: "questions", fieldId: field.id });
         if (field.minSelected !== null && field.maxSelected !== null && field.minSelected > field.maxSelected) add({ id: `range-${field.id}`, message: `${where}: the minimum selection is greater than the maximum.`, tab: "questions", fieldId: field.id });
+      }
+    }
+    if (isGridField(field)) {
+      if ([...field.rows, ...field.columns].some((item) => !item.label.trim())) {
+        add({ id: `grid-${field.id}`, message: `${where}: fill in or remove empty rows and columns.`, tab: "questions", fieldId: field.id });
+      } else if (new Set(field.rows.map((row) => row.label.trim().toLowerCase())).size < field.rows.length) {
+        // Answers are sent keyed by row name, so two rows with one name would collide.
+        add({ id: `grid-rows-${field.id}`, message: `${where}: give each row a different name.`, tab: "questions", fieldId: field.id });
       }
     }
     if ((field.type === "short_text" || field.type === "long_text") && field.minLength !== null && field.maxLength !== null && field.minLength > field.maxLength) {

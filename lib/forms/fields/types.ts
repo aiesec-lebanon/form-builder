@@ -10,11 +10,14 @@ export type ResolvedFile = { name: string; url: string; size: number; mimeType: 
 /** Choice answers: selected option ids, and `other` (non-null = "Other" chosen). */
 export type ChoiceValue = { optionIds: string[]; other: string | null };
 
+/** Grid answers: selected column ids per row id. */
+export type GridValue = Record<string, string[]>;
+
 /** A validated, normalized answer. `null` means "not answered". */
-export type AnswerValue = string | number | boolean | ChoiceValue | FileAnswer[] | ResolvedFile[];
+export type AnswerValue = string | number | boolean | ChoiceValue | GridValue | FileAnswer[] | ResolvedFile[];
 
 /** What destinations receive for one answer. */
-export type OutputValue = string | number | boolean | string[] | ResolvedFile[] | Array<Omit<FileAnswer, "fileId"> & { fileId: string }>;
+export type OutputValue = string | number | boolean | string[] | Record<string, string | string[]> | ResolvedFile[] | Array<Omit<FileAnswer, "fileId"> & { fileId: string }>;
 
 export type ValidationResult = { ok: true; value: AnswerValue | null } | { ok: false; error: string };
 

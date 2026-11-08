@@ -9,7 +9,7 @@ export type TemplateId = "blank" | "event" | "feedback" | "contact" | "membershi
 export const TEMPLATES: Array<{ id: TemplateId; name: string; description: string }> = [
   { id: "blank", name: "Blank form", description: "Start from scratch" },
   { id: "event", name: "Event registration", description: "Names, contacts, sessions, consent" },
-  { id: "feedback", name: "Feedback survey", description: "Ratings and open feedback" },
+  { id: "feedback", name: "Feedback survey", description: "Ratings, a grid and open feedback" },
   { id: "contact", name: "Contact form", description: "Enquiries from partners and youth" },
   { id: "membership", name: "Membership application", description: "Two pages, CV upload" },
 ];
@@ -69,6 +69,7 @@ export function templateDocument(id: TemplateId): FormDocument {
           page([
             field("rating", { label: "How would you rate the event overall?", required: true }),
             field("linear_scale", { label: "How likely are you to recommend it to a friend?", min: 0, max: 10, minLabel: "Not likely", maxLabel: "Very likely" }),
+            field("choice_grid", { label: "How was each part?", rows: options("Content", "Speakers", "Venue", "Organisation"), columns: options("Poor", "Okay", "Good", "Great") }),
             field("long_text", { label: "What did you enjoy most?" }),
             field("long_text", { label: "What should we improve?" }),
             field("email", { label: "Email", description: "Only if you'd like us to follow up." }),

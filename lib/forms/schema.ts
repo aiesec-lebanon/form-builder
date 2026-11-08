@@ -9,6 +9,8 @@ export const LIMITS = {
   pages: 50,
   fields: 200,
   options: 200,
+  gridRows: 50,
+  gridColumns: 20,
   label: 500,
   description: 2000,
   shortText: 1000,
@@ -37,6 +39,8 @@ export const FIELD_TYPES = [
   "single_choice",
   "multi_choice",
   "dropdown",
+  "choice_grid",
+  "checkbox_grid",
   "linear_scale",
   "rating",
   "file_upload",
@@ -102,6 +106,10 @@ const multiChoice = z.object({
   maxSelected: z.number().int().min(1).max(LIMITS.options).nullable().default(null),
 });
 const dropdown = z.object({ ...base, type: z.literal("dropdown"), options });
+const gridRows = z.array(optionSchema).min(1).max(LIMITS.gridRows);
+const gridColumns = z.array(optionSchema).min(1).max(LIMITS.gridColumns);
+const choiceGrid = z.object({ ...base, type: z.literal("choice_grid"), rows: gridRows, columns: gridColumns });
+const checkboxGrid = z.object({ ...base, type: z.literal("checkbox_grid"), rows: gridRows, columns: gridColumns });
 const linearScale = z.object({
   ...base,
   type: z.literal("linear_scale"),
@@ -134,6 +142,8 @@ export const fieldSchema = z.discriminatedUnion("type", [
   singleChoice,
   multiChoice,
   dropdown,
+  choiceGrid,
+  checkboxGrid,
   linearScale,
   rating,
   fileUpload,
@@ -144,6 +154,7 @@ export const fieldSchema = z.discriminatedUnion("type", [
 export type Field = z.infer<typeof fieldSchema>;
 export type FieldOf<T extends FieldType> = Extract<Field, { type: T }>;
 export type ChoiceField = FieldOf<"single_choice"> | FieldOf<"multi_choice"> | FieldOf<"dropdown">;
+export type GridField = FieldOf<"choice_grid"> | FieldOf<"checkbox_grid">;
 
 export const pageSchema = z.object({
   id: pageId,
@@ -205,6 +216,9 @@ export const formDocumentSchema = z
         if ("options" in field) {
           field.options.forEach((option, optionIndex) => claim(option.id, ["pages", pageIndex, "fields", fieldIndex, "options", optionIndex]));
         }
+        if ("rows" in field) {
+          [...field.rows, ...field.columns].forEach((item, itemIndex) => claim(item.id, ["pages", pageIndex, "fields", fieldIndex, "grid", itemIndex]));
+        }
       });
     });
     if (fieldCount > LIMITS.fields) ctx.addIssue({ code: "custom", message: `A form can have up to ${LIMITS.fields} questions`, path: ["pages"] });
@@ -224,4 +238,8 @@ export function allFields(doc: FormDocument): Field[] {
 
 export function isChoiceField(field: Field): field is ChoiceField {
   return field.type === "single_choice" || field.type === "multi_choice" || field.type === "dropdown";
+}
+
+export function isGridField(field: Field): field is GridField {
+  return field.type === "choice_grid" || field.type === "checkbox_grid";
 }

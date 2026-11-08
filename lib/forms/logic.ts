@@ -53,6 +53,9 @@ function isAnswered(field: Field, raw: unknown): boolean {
     return optionIdsOf(raw).length > 0 || (typeof other === "string" && other.trim() !== "");
   }
   if (field.type === "consent") return raw === true;
+  if (field.type === "choice_grid" || field.type === "checkbox_grid") {
+    return typeof raw === "object" && Object.values(raw as Record<string, unknown>).some((selection) => (Array.isArray(selection) ? selection.length > 0 : Boolean(selection)));
+  }
   if (field.type === "file_upload") return Array.isArray(raw) && raw.length > 0;
   if (field.type === "rating") return typeof raw === "number" && raw > 0;
   return String(raw).trim() !== "";

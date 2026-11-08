@@ -165,6 +165,67 @@ describe("other questions", () => {
   });
 });
 
+describe("grid questions", () => {
+  const grid: FieldOf<"choice_grid"> = { ...createField("choice_grid"), label: "Rate each session" };
+  const [first, second] = grid.rows;
+  const [poor, okay, good] = grid.columns;
+
+  it("multiple-choice grid: one known column per known row", () => {
+    expectOk(grid, { [first.id]: [good.id] }, { [first.id]: [good.id] });
+    expectOk(grid, { [first.id]: good.id }, { [first.id]: [good.id] });
+    expectOk(grid, {}, null);
+    expectOk(grid, { [first.id]: [] }, null);
+    expectError(grid, { [first.id]: [good.id, poor.id] }, "Choose one answer in each row.");
+    expectError(grid, { o_unknown1: [good.id] }, "Choose from the options listed.");
+    expectError(grid, { [first.id]: ["o_unknown1"] }, "Choose from the options listed.");
+    expectError(grid, "Good", "Choose from the options listed.");
+  });
+
+  it("a required grid needs every row answered", () => {
+    const required = { ...grid, required: true };
+    expectError(required, undefined, "Answer every row.");
+    expectError(required, { [first.id]: [good.id] }, "Answer every row.");
+    expectOk(required, { [first.id]: [good.id], [second.id]: [okay.id] }, { [first.id]: [good.id], [second.id]: [okay.id] });
+  });
+
+  it("checkbox grid allows several answers per row, without duplicates", () => {
+    const boxes = createField("checkbox_grid");
+    const [row] = boxes.rows;
+    const [a, b] = boxes.columns;
+    expectOk(boxes, { [row.id]: [a.id, b.id, a.id] }, { [row.id]: [a.id, b.id] });
+    expectError({ ...boxes, required: true }, null, "Choose at least one answer in every row.");
+  });
+
+  it("sends row → column labels and gives each row its own Sheet column", () => {
+    const boxes: FieldOf<"checkbox_grid"> = { ...createField("checkbox_grid"), label: "Available days" };
+    const doc = { ...blankDocument(), pages: [{ ...blankDocument().pages[0], fields: [grid, boxes] }] };
+    const values = { [grid.id]: { [second.id]: [okay.id] }, [boxes.id]: { [boxes.rows[0].id]: [boxes.columns[0].id, boxes.columns[2].id] } };
+    const answers = buildAnswers(doc, values);
+    expect(answers[0].value).toEqual({ "Row 2": "Okay" });
+    expect(answers[1].value).toEqual({ "Row 1": ["Column 1", "Column 3"] });
+    const headers = fieldHeaders(doc);
+    expect(headers.map((header) => header.header)).toEqual(["Rate each session [Row 1]", "Rate each session [Row 2]", "Available days [Row 1]", "Available days [Row 2]"]);
+    const cells = buildCells(doc, values);
+    expect(headers.map((header) => cells[header.fieldId])).toEqual(["", "Okay", "Column 1, Column 3", ""]);
+  });
+
+  it("converts between grid kinds keeping rows and columns", () => {
+    const converted = convertField({ ...grid, required: true }, "checkbox_grid") as FieldOf<"checkbox_grid">;
+    expect(converted).toMatchObject({ id: grid.id, type: "checkbox_grid", required: true, rows: grid.rows, columns: grid.columns });
+    expect(compatibleTypes("choice_grid")).toEqual(["choice_grid", "checkbox_grid"]);
+  });
+
+  it("publish checks catch blank and repeated rows", () => {
+    const context = { hasPrimaryDestination: true, hasFileStorage: true };
+    const withGrid = (field: Field) => ({ ...blankDocument(), pages: [{ ...blankDocument().pages[0], fields: [field] }] });
+    expect(publishProblems(withGrid(grid), context)).toEqual([]);
+    const blank = { ...grid, columns: [...grid.columns, { id: "o_blankcol1", label: " " }] };
+    expect(publishProblems(withGrid(blank), context).map((problem) => problem.id)).toEqual([`grid-${grid.id}`]);
+    const repeated = { ...grid, rows: [first, { ...second, label: "row 1 " }] };
+    expect(publishProblems(withGrid(repeated), context).map((problem) => problem.id)).toEqual([`grid-rows-${grid.id}`]);
+  });
+});
+
 describe("type conversion", () => {
   it("keeps label, required and options across compatible types", () => {
     const radio = { ...createField("single_choice"), label: "Programme", required: true };

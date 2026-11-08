@@ -181,6 +181,14 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
           </fieldset>
         </>
       );
+    case "choice_grid":
+    case "checkbox_grid":
+      return (
+        <p className="ae-body-sm text-text-muted">
+          Edit rows and columns on the question. Every row uses the same columns. With Required on, people answer every row.
+          {field.type === "choice_grid" ? " One answer per row." : " Several answers per row are allowed."}
+        </p>
+      );
     case "consent":
       return <TextField label="Checkbox text" value={field.checkboxLabel} maxLength={500} onChange={(event) => onChange({ checkboxLabel: event.target.value })} />;
     case "statement":

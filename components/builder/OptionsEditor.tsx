@@ -6,26 +6,32 @@ import * as React from "react";
 import { cx } from "@/components/aiesec";
 import { OTHER_LABEL } from "@/lib/forms/fields/choice";
 import { newId } from "@/lib/forms/ids";
-import { LIMITS, type ChoiceField, type Option } from "@/lib/forms/schema";
+import { LIMITS, type Option } from "@/lib/forms/schema";
 
-// Fast option editing: Enter adds the next option, Backspace on an empty one
-// removes it, pasting several lines creates several options, Alt+↑/↓ reorders.
+// Fast list editing for options, grid rows and grid columns: Enter adds the
+// next item, Backspace on an empty one removes it, pasting several lines
+// creates several items, Alt+↑/↓ reorders.
 
 type Props = {
-  field: ChoiceField;
+  options: Option[];
   onOptions: (options: Option[]) => void;
+  /** What sits before each item. */
+  marker: "radio" | "checkbox" | "number" | "none";
+  /** "Option", "Row" or "Column": used in labels and placeholders. */
+  itemName?: string;
+  max?: number;
+  allowOther?: boolean;
   onAllowOther?: (allow: boolean) => void;
 };
 
-export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
+export function OptionsEditor({ options, onOptions, marker, itemName = "Option", max = LIMITS.options, allowOther = false, onAllowOther }: Props) {
   const inputs = React.useRef(new Map<string, HTMLInputElement>());
-  // The option to focus after the next render (a ref: focusing isn't state).
+  // The item to focus after the next render (a ref: focusing isn't state).
   const pendingFocus = React.useRef<string | null>(null);
-  const options = field.options;
-  const allowOther = field.type !== "dropdown" && field.allowOther;
   const setFocusId = (id: string) => {
     pendingFocus.current = id;
   };
+  const lower = itemName.toLowerCase();
 
   React.useEffect(() => {
     const id = pendingFocus.current;
@@ -41,11 +47,10 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
   const update = (id: string, label: string) => onOptions(options.map((option) => (option.id === id ? { ...option, label } : option)));
 
   const insertAfter = (index: number, labels: string[] = [""]) => {
-    const room = LIMITS.options - options.length;
+    const room = max - options.length;
     if (room <= 0) return;
     const created = labels.slice(0, room).map((label) => ({ id: newId("o"), label }));
-    const next = [...options.slice(0, index + 1), ...created, ...options.slice(index + 1)];
-    onOptions(next);
+    onOptions([...options.slice(0, index + 1), ...created, ...options.slice(index + 1)]);
     setFocusId(created[created.length - 1].id);
   };
 
@@ -65,27 +70,26 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
     setFocusId(options[index].id);
   };
 
-  const marker = (index: number) =>
-    field.type === "dropdown" ? (
-      <span className="w-5 shrink-0 text-right ae-body-sm text-text-muted">{index + 1}.</span>
-    ) : (
-      <span aria-hidden="true" className={cx("inline-block size-4 shrink-0 border-2 border-border-strong", field.type === "single_choice" ? "rounded-full" : "rounded-sm")} />
-    );
+  const markerFor = (index: number) => {
+    if (marker === "number") return <span className="w-5 shrink-0 text-right ae-body-sm text-text-muted">{index + 1}.</span>;
+    if (marker === "none") return null;
+    return <span aria-hidden="true" className={cx("inline-block size-4 shrink-0 border-2 border-border-strong", marker === "radio" ? "rounded-full" : "rounded-sm")} />;
+  };
 
   return (
     <div className="flex flex-col gap-1">
       <ul role="list" className="flex flex-col gap-1">
         {options.map((option, index) => (
           <li key={option.id} className="group flex items-center gap-3">
-            {marker(index)}
+            {markerFor(index)}
             <input
               ref={(element) => {
                 if (element) inputs.current.set(option.id, element);
                 else inputs.current.delete(option.id);
               }}
               value={option.label}
-              aria-label={`Option ${index + 1}`}
-              placeholder={`Option ${index + 1}`}
+              aria-label={`${itemName} ${index + 1}`}
+              placeholder={`${itemName} ${index + 1}`}
               maxLength={LIMITS.label}
               onChange={(event) => update(option.id, event.target.value)}
               onKeyDown={(event) => {
@@ -110,7 +114,7 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
                 event.preventDefault();
                 const [first, ...rest] = lines;
                 const merged = options.map((item) => (item.id === option.id ? { ...item, label: option.label ? `${option.label}${first}` : first } : item));
-                const room = LIMITS.options - merged.length;
+                const room = max - merged.length;
                 const created = rest.slice(0, Math.max(0, room)).map((label) => ({ id: newId("o"), label }));
                 onOptions([...merged.slice(0, index + 1), ...created, ...merged.slice(index + 1)]);
                 if (created.length) setFocusId(created[created.length - 1].id);
@@ -119,7 +123,7 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
             />
             <button
               type="button"
-              aria-label={`Remove option ${index + 1}`}
+              aria-label={`Remove ${lower} ${index + 1}`}
               disabled={options.length <= 1}
               onClick={() => remove(index)}
               className="ae-close opacity-100 disabled:invisible lg:opacity-0 lg:group-focus-within:opacity-100 lg:group-hover:opacity-100"
@@ -130,7 +134,7 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
         ))}
         {allowOther && (
           <li className="flex items-center gap-3">
-            {marker(options.length)}
+            {markerFor(options.length)}
             <span className="h-10 flex-1 border-b-2 border-dotted border-border pt-2 ae-body text-text-muted">{OTHER_LABEL}…</span>
             <button type="button" aria-label="Remove the Other option" onClick={() => onAllowOther?.(false)} className="ae-close">
               <X size={18} aria-hidden="true" />
@@ -142,18 +146,18 @@ export function OptionsEditor({ field, onOptions, onAllowOther }: Props) {
         <button
           type="button"
           onClick={() => insertAfter(options.length - 1)}
-          disabled={options.length >= LIMITS.options}
+          disabled={options.length >= max}
           className="inline-flex h-10 items-center gap-2 rounded-md px-2 ae-label text-primary-text hover:bg-primary-soft disabled:opacity-45"
         >
           <Plus size={18} aria-hidden="true" />
-          Add option
+          Add {lower}
         </button>
-        {field.type !== "dropdown" && !allowOther && onAllowOther && (
+        {onAllowOther && !allowOther && (
           <button type="button" onClick={() => onAllowOther(true)} className="inline-flex h-10 items-center rounded-md px-2 ae-body-sm text-text-muted hover:bg-bg-subtle hover:text-text">
             Add &ldquo;{OTHER_LABEL}&rdquo;
           </button>
         )}
-        <span className="hidden ae-caption text-text-muted lg:inline">Tip: paste a list to add many at once</span>
+        {itemName === "Option" && <span className="hidden ae-caption text-text-muted lg:inline">Tip: paste a list to add many at once</span>}
       </div>
     </div>
   );

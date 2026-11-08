@@ -1,11 +1,12 @@
 import { newId } from "../ids";
 import { type Field, type FieldOf, type FieldType } from "../schema";
 import { dropdown, multiChoice, singleChoice } from "./choice";
+import { checkboxGrid, choiceGrid } from "./grid";
 import { consent, date, fileUpload, linearScale, rating, statement, time } from "./other";
 import { email, longText, number, phone, shortText, url } from "./text";
 import type { AnswerValue, FieldDefinition, FieldGroup, ValidationResult } from "./types";
 
-export type { AnswerValue, ChoiceValue, FieldDefinition, FieldGroup, FileAnswer, OutputValue, ResolvedFile, ValidationResult } from "./types";
+export type { AnswerValue, ChoiceValue, FieldDefinition, FieldGroup, FileAnswer, GridValue, OutputValue, ResolvedFile, ValidationResult } from "./types";
 
 type Registry = { [T in FieldType]: FieldDefinition<FieldOf<T>> };
 
@@ -21,6 +22,8 @@ export const FIELD_DEFINITIONS: Registry = {
   single_choice: singleChoice,
   multi_choice: multiChoice,
   dropdown,
+  choice_grid: choiceGrid,
+  checkbox_grid: checkboxGrid,
   linear_scale: linearScale,
   rating,
   file_upload: fileUpload,
@@ -39,7 +42,7 @@ export function definitionOf<T extends FieldType>(type: T): FieldDefinition<Fiel
 
 export const PALETTE: Array<{ group: FieldGroup; title: string; types: FieldType[] }> = [
   { group: "text", title: "Text", types: ["short_text", "long_text", "email", "phone", "number", "url"] },
-  { group: "choice", title: "Choice", types: ["single_choice", "multi_choice", "dropdown"] },
+  { group: "choice", title: "Choice", types: ["single_choice", "multi_choice", "dropdown", "choice_grid", "checkbox_grid"] },
   { group: "scale", title: "Scale", types: ["linear_scale", "rating"] },
   { group: "datetime", title: "Date and time", types: ["date", "time"] },
   { group: "other", title: "More", types: ["file_upload", "consent", "statement"] },
@@ -52,10 +55,11 @@ export function createField<T extends FieldType>(type: T): FieldOf<T> {
 const TEXT_TYPES: FieldType[] = ["short_text", "long_text", "email", "phone", "number", "url"];
 const CHOICE_TYPES: FieldType[] = ["single_choice", "multi_choice", "dropdown"];
 const SCALE_TYPES: FieldType[] = ["linear_scale", "rating"];
+const GRID_TYPES: FieldType[] = ["choice_grid", "checkbox_grid"];
 
 /** Types a field can switch to while keeping its meaning (and most settings). */
 export function compatibleTypes(type: FieldType): FieldType[] {
-  for (const family of [TEXT_TYPES, CHOICE_TYPES, SCALE_TYPES]) {
+  for (const family of [TEXT_TYPES, CHOICE_TYPES, SCALE_TYPES, GRID_TYPES]) {
     if (family.includes(type)) return family;
   }
   return [type];
@@ -73,6 +77,10 @@ export function convertField(field: Field, type: FieldType): Field {
   }
   if ("options" in field && "options" in next) merged.options = field.options;
   if ("allowOther" in field && "allowOther" in next) merged.allowOther = field.allowOther;
+  if ("rows" in field && "rows" in next) {
+    merged.rows = field.rows;
+    merged.columns = field.columns;
+  }
   return merged as Field;
 }
 

@@ -8,7 +8,7 @@ import * as React from "react";
 import { Switch, cx } from "@/components/aiesec";
 import { Menu } from "@/components/app/Menu";
 import { compatibleTypes, definitionOf } from "@/lib/forms/fields";
-import { isChoiceField, type Field } from "@/lib/forms/schema";
+import { isChoiceField, isGridField, LIMITS, type Field } from "@/lib/forms/schema";
 
 import { FIELD_ICONS } from "./fieldIcons";
 import { FieldPreview } from "./FieldPreview";
@@ -124,7 +124,24 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
           </div>
 
           {isChoiceField(field) ? (
-            <OptionsEditor field={field} onOptions={(options) => update({ options })} onAllowOther={field.type === "dropdown" ? undefined : (allowOther) => update({ allowOther })} />
+            <OptionsEditor
+              options={field.options}
+              onOptions={(options) => update({ options })}
+              marker={field.type === "dropdown" ? "number" : field.type === "single_choice" ? "radio" : "checkbox"}
+              allowOther={field.type !== "dropdown" && field.allowOther}
+              onAllowOther={field.type === "dropdown" ? undefined : (allowOther) => update({ allowOther })}
+            />
+          ) : isGridField(field) ? (
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <h3 className="ae-label-sm text-text-muted uppercase">Rows</h3>
+                <OptionsEditor options={field.rows} onOptions={(rows) => update({ rows })} marker="none" itemName="Row" max={LIMITS.gridRows} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="ae-label-sm text-text-muted uppercase">Columns</h3>
+                <OptionsEditor options={field.columns} onOptions={(columns) => update({ columns })} marker={field.type === "choice_grid" ? "radio" : "checkbox"} itemName="Column" max={LIMITS.gridColumns} />
+              </div>
+            </div>
           ) : field.type === "consent" ? (
             <div className="flex items-start gap-3">
               <span aria-hidden="true" className="mt-1 inline-block size-4 shrink-0 rounded-sm border-2 border-border-strong" />

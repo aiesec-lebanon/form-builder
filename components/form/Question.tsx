@@ -4,9 +4,9 @@ import { CircleAlert, Star } from "lucide-react";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
-import type { ChoiceValue } from "@/lib/forms/fields";
+import type { ChoiceValue, GridValue } from "@/lib/forms/fields";
 import { OTHER_LABEL } from "@/lib/forms/fields/choice";
-import type { ChoiceField, Field, FieldOf, Option } from "@/lib/forms/schema";
+import type { ChoiceField, Field, FieldOf, GridField, Option } from "@/lib/forms/schema";
 
 import { FileField, type UploadContext } from "./FileField";
 import { linkify } from "./linkify";
@@ -70,9 +70,10 @@ function ErrorLine({ id, error }: { id: string; error?: string }) {
   );
 }
 
-const choiceRow = (checked: boolean) =>
+const choiceRow = (checked: boolean, compact = false) =>
   cx(
-    "flex min-h-12 cursor-pointer items-center gap-3 rounded-md border px-4 py-3 transition-colors duration-150",
+    "flex min-h-12 cursor-pointer items-center rounded-md border transition-colors duration-150",
+    compact ? "gap-2.5 px-3 py-2" : "gap-3 px-4 py-3",
     checked ? "border-primary bg-primary-soft" : "border-border bg-surface hover:border-border-strong",
     "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
   );
@@ -145,6 +146,114 @@ function ChoiceControl({ field, value, onChange, describedBy, error, optionOrder
         </div>
       )}
     </div>
+  );
+}
+
+function asGrid(value: unknown): GridValue {
+  if (value && typeof value === "object" && !Array.isArray(value) && !("optionIds" in value)) return value as GridValue;
+  return {};
+}
+
+const nameOf = (option: Option, index: number, fallback: string) => option.label.trim() || `${fallback} ${index + 1}`;
+
+// A grid is a table from the sm breakpoint up and one compact group per row on
+// phones. Both are rendered and one is hidden with CSS (display: none keeps the
+// hidden copy out of the tab order and the accessibility tree); their inputs use
+// different names so the browser never groups radios across the two.
+function GridControl({ field, value, onChange, error, baseId }: { field: GridField; value: unknown; onChange: (value: unknown) => void; error?: string; baseId: string }) {
+  const grid = asGrid(value);
+  const multiple = field.type === "checkbox_grid";
+  const inputType = multiple ? "checkbox" : "radio";
+  const inputClass = multiple ? "ae-checkbox" : "ae-radio";
+
+  const set = (rowId: string, columnId: string, checked: boolean) => {
+    const current = grid[rowId] ?? [];
+    const row = multiple ? (checked ? [...current.filter((id) => id !== columnId), columnId] : current.filter((id) => id !== columnId)) : [columnId];
+    const next: GridValue = { ...grid };
+    if (row.length > 0) next[rowId] = row;
+    else delete next[rowId];
+    onChange(next);
+  };
+  // After a failed submit, point at the rows that still need an answer.
+  const missing = (rowId: string) => Boolean(error) && field.required && !(grid[rowId]?.length);
+
+  return (
+    <>
+      <div className="hidden max-w-full overflow-x-auto sm:block">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <td className="min-w-32" />
+              {field.columns.map((column, index) => (
+                <th key={column.id} scope="col" className="px-1 pb-2 text-center align-bottom ae-body-sm font-normal text-text-muted">
+                  {nameOf(column, index, "Column")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {field.rows.map((row, rowIndex) => {
+              const picked = grid[row.id] ?? [];
+              const rowName = nameOf(row, rowIndex, "Row");
+              return (
+                <tr key={row.id} className="border-t border-border">
+                  <th scope="row" className={cx("py-2 pr-4 text-left ae-body font-normal", missing(row.id) ? "text-danger-text" : "text-text")}>
+                    {rowName}
+                    {missing(row.id) && <span className="sr-only"> (needs an answer)</span>}
+                  </th>
+                  {field.columns.map((column, columnIndex) => (
+                    <td key={column.id} className="p-0 text-center">
+                      <label className="inline-flex size-12 cursor-pointer items-center justify-center rounded-md hover:bg-bg-subtle">
+                        <input
+                          type={inputType}
+                          name={`${baseId}-t-${row.id}`}
+                          value={column.id}
+                          checked={picked.includes(column.id)}
+                          onChange={(event) => set(row.id, column.id, event.target.checked)}
+                          aria-label={`${rowName}: ${nameOf(column, columnIndex, "Column")}`}
+                          className={inputClass}
+                        />
+                      </label>
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-col gap-5 sm:hidden">
+        {field.rows.map((row, rowIndex) => {
+          const picked = grid[row.id] ?? [];
+          return (
+            <fieldset key={row.id} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+              <legend className={cx("float-left w-full p-0 ae-body", missing(row.id) ? "text-danger-text" : "text-text")}>
+                {nameOf(row, rowIndex, "Row")}
+                {missing(row.id) && <span className="sr-only"> (needs an answer)</span>}
+              </legend>
+              <div className="grid grid-cols-2 gap-2">
+                {field.columns.map((column, columnIndex) => {
+                  const checked = picked.includes(column.id);
+                  return (
+                    <label key={column.id} className={choiceRow(checked, true)}>
+                      <input
+                        type={inputType}
+                        name={`${baseId}-m-${row.id}`}
+                        value={column.id}
+                        checked={checked}
+                        onChange={(event) => set(row.id, column.id, event.target.checked)}
+                        className={inputClass}
+                      />
+                      <span className="ae-body text-text">{nameOf(column, columnIndex, "Column")}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -270,6 +379,9 @@ export function Question({ field, value, error, onChange, onBlur, optionOrder, u
     case "single_choice":
     case "multi_choice":
       return grouped(<ChoiceControl field={field} value={value} onChange={onChange} describedBy={describedBy} error={error} optionOrder={optionOrder} />);
+    case "choice_grid":
+    case "checkbox_grid":
+      return grouped(<GridControl field={field} value={value} onChange={onChange} error={error} baseId={id} />);
     case "linear_scale": {
       const steps = Array.from({ length: field.max - field.min + 1 }, (_, index) => field.min + index);
       return grouped(

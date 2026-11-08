@@ -59,6 +59,43 @@ export function FieldPreview({ field }: { field: Field }) {
         </ul>
       );
     }
+    case "choice_grid":
+    case "checkbox_grid": {
+      const rows = field.rows.slice(0, 4);
+      const columns = field.columns.slice(0, 6);
+      const more = field.rows.length - rows.length;
+      return (
+        <div className="max-w-full overflow-x-auto">
+          <table className="border-separate border-spacing-x-3 border-spacing-y-1.5 ae-body-sm">
+            <thead>
+              <tr>
+                <td />
+                {columns.map((column, index) => (
+                  <th key={column.id} scope="col" className="px-1 text-center font-normal text-text-muted">
+                    {column.label || `Column ${index + 1}`}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={row.id}>
+                  <th scope="row" className="pr-2 text-left font-normal text-text">
+                    {row.label || `Row ${index + 1}`}
+                  </th>
+                  {columns.map((column) => (
+                    <td key={column.id} className="text-center">
+                      <span aria-hidden="true" className={cx("inline-block size-4 border-2 border-border-strong align-middle", field.type === "choice_grid" ? "rounded-full" : "rounded-sm")} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {more > 0 && <p className="ae-caption text-text-muted">and {more} more rows</p>}
+        </div>
+      );
+    }
     case "linear_scale": {
       const steps = Array.from({ length: field.max - field.min + 1 }, (_, index) => field.min + index);
       return (
