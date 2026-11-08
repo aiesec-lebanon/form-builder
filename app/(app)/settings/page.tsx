@@ -45,7 +45,12 @@ export default async function SettingsPage({ searchParams }: Props) {
           <div className="flex flex-col gap-0.5">
             <p className="ae-h4">{user.fullName}</p>
             {(user.positionTitle || user.officeName) && <p className="ae-body-sm text-text-muted">{[user.positionTitle, user.officeName].filter(Boolean).join(" · ")}</p>}
-            {user.email && <p className="ae-body-sm text-text-muted">{user.email}</p>}
+            {user.workEmail && (
+              <p className="ae-body-sm text-text-muted">
+                AIESEC email: <span className="text-text">{user.workEmail}</span>
+              </p>
+            )}
+            {user.email && user.email !== user.workEmail && <p className="ae-body-sm text-text-muted">EXPA sign-in email: {user.email}</p>}
           </div>
         </div>
       </Section>
@@ -54,7 +59,7 @@ export default async function SettingsPage({ searchParams }: Props) {
         <ThemeChooser initial={theme} />
       </Section>
 
-      <Section title="Google accounts" description="Used to create response Sheets and upload folders. AIESEC Forms can only see files it creates.">
+      <Section title="Google accounts" description="Connect your AIESEC Google account. Response Sheets and upload folders are created in its Drive, and AIESEC Forms only sees files it creates or you choose.">
         <GoogleAccounts
           configured={googleConfigured()}
           connections={connections.map((connection) => ({

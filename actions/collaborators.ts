@@ -45,7 +45,7 @@ export async function addCollaborator(formId: string, rawIdentifier: string): Pr
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(identifier);
   if (!isPersonId && !isEmail) return fail("Enter an email address or an EXPA ID (numbers only).", { fieldErrors: { identifier: "Enter an email address or an EXPA ID (numbers only)." } });
 
-  const target = isPersonId ? await db.user.findUnique({ where: { aiesecPersonId: BigInt(identifier) } }) : await db.user.findFirst({ where: { email: identifier } });
+  const target = isPersonId ? await db.user.findUnique({ where: { aiesecPersonId: BigInt(identifier) } }) : await db.user.findFirst({ where: { OR: [{ email: identifier }, { googleConnections: { some: { email: identifier } } }] } });
   if (target?.id === access.form.ownerId) return fail("That's the form's owner. They already have access.");
 
   if (target) {

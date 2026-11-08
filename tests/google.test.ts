@@ -57,19 +57,23 @@ afterEach(() => {
 
 describe("Google OAuth", () => {
   it("asks for offline drive.file access", () => {
-    const url = new URL(googleAuthorizeUrl("state-1", "lina@example.org"));
+    const url = new URL(googleAuthorizeUrl("state-1", { loginHint: "lina@aiesec.net", hostedDomain: "aiesec.net" }));
     expect(url.searchParams.get("scope")).toBe("openid email https://www.googleapis.com/auth/drive.file");
     expect(url.searchParams.get("redirect_uri")).toBe("http://localhost:3000/api/google/callback");
     expect(url.searchParams.get("access_type")).toBe("offline");
-    expect(url.searchParams.get("login_hint")).toBe("lina@example.org");
-    expect(new URL(googleAuthorizeUrl("s")).searchParams.has("login_hint")).toBe(false);
+    expect(url.searchParams.get("login_hint")).toBe("lina@aiesec.net");
+    expect(url.searchParams.get("hd")).toBe("aiesec.net");
+    const bare = new URL(googleAuthorizeUrl("s")).searchParams;
+    expect(bare.has("login_hint") || bare.has("hd")).toBe(false);
     expect(googleCookieOptions()).toMatchObject({ path: "/api/google", maxAge: 600, httpOnly: true });
   });
 
   it("exchanges a code for tokens and the account identity", async () => {
     const fetchMock = stubFetch(json({ access_token: "at", expires_in: 3600, refresh_token: "rt", scope: "openid email https://www.googleapis.com/auth/drive.file", id_token: idToken({ sub: "123", email: "Lina@Example.org" }) }));
     const grant = await exchangeGoogleCode("code-1");
-    expect(grant).toMatchObject({ accessToken: "at", refreshToken: "rt", sub: "123", email: "lina@example.org", emailVerified: true });
+    expect(grant).toMatchObject({ accessToken: "at", refreshToken: "rt", sub: "123", email: "lina@example.org", emailVerified: true, hostedDomain: null });
+    stubFetch(json({ access_token: "at", expires_in: 3600, refresh_token: "rt", scope: "openid email https://www.googleapis.com/auth/drive.file", id_token: idToken({ sub: "124", email: "lina@aiesec.net", hd: "AIESEC.net" }) }));
+    expect((await exchangeGoogleCode("code-2")).hostedDomain).toBe("aiesec.net");
     expect(String(fetchMock.mock.calls[0][1].body)).toContain("client_secret=client-secret");
   });
 

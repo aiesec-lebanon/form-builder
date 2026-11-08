@@ -5,8 +5,9 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { safeReturnTo } from "@/lib/auth/oauth";
 import { encryptSecret, safeEqual } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { baseUrl } from "@/lib/env";
-import { exchangeGoogleCode, GOOGLE_RETURN_COOKIE, GOOGLE_STATE_COOKIE, googleCookieOptions, GoogleAuthError } from "@/lib/google/oauth";
+import { baseUrl, googleAllowedDomains } from "@/lib/env";
+import { exchangeGoogleCode, GOOGLE_RETURN_COOKIE, GOOGLE_STATE_COOKIE, googleCookieOptions, GoogleAuthError, revokeGoogleToken } from "@/lib/google/oauth";
+import { acceptPendingInvites } from "@/lib/auth/sign-in";
 import { logger } from "@/lib/logger";
 import { clientIp, userAgent } from "@/lib/request";
 
@@ -42,6 +43,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const grant = await exchangeGoogleCode(code);
+    // Only AIESEC Workspace accounts (or the configured domains): Sheets and upload
+    // folders live in this account's Drive. Withdraw the grant we just got otherwise.
+    const domains = googleAllowedDomains();
+    if (domains && !(grant.hostedDomain && domains.includes(grant.hostedDomain))) {
+      await revokeGoogleToken(grant.refreshToken);
+      logger.info("google.domain_refused", { userId: user.id, domain: grant.hostedDomain ?? "personal account" });
+      return back(returnTo, "google_error=domain");
+    }
     const data = {
       email: grant.email,
       refreshTokenEnc: encryptSecret(grant.refreshToken),
@@ -62,6 +71,12 @@ export async function GET(request: NextRequest) {
       ip: clientIp(request.headers),
       userAgent: userAgent(request.headers),
     });
+    // Invites sent to this (AIESEC) address become editor access now.
+    try {
+      await acceptPendingInvites(user, [grant.email]);
+    } catch (error) {
+      logger.warn("google.invites_failed", { userId: user.id, error });
+    }
     return back(returnTo, "google=connected");
   } catch (error) {
     logger.warn("google.connect_failed", { userId: user.id, error });

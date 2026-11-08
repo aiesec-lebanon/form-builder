@@ -33,11 +33,21 @@ export async function upsertUser(personId: string, profile: ReturnType<typeof pr
   });
 }
 
-/** Converts invites addressed to the user's email into editor access. Returns how many. */
-export async function acceptPendingInvites(user: User): Promise<number> {
-  if (!user.email) return 0;
+/**
+ * Every address we know for a person: the EXPA email (often personal) and the
+ * Google accounts they connected (their AIESEC work email).
+ */
+export async function knownEmails(user: Pick<User, "id" | "email">): Promise<string[]> {
+  const connections = await db.googleConnection.findMany({ where: { userId: user.id }, select: { email: true } });
+  return [...new Set([user.email, ...connections.map((connection) => connection.email)].filter((email): email is string => Boolean(email)).map((email) => email.toLowerCase()))];
+}
+
+/** Converts invites addressed to any of the user's emails into editor access. Returns how many. */
+export async function acceptPendingInvites(user: Pick<User, "id" | "email">, emails?: string[]): Promise<number> {
+  const addresses = emails ?? (await knownEmails(user));
+  if (addresses.length === 0) return 0;
   const invites = await db.formInvite.findMany({
-    where: { email: user.email, form: { deletedAt: null } },
+    where: { email: { in: addresses }, form: { deletedAt: null } },
     select: { id: true, formId: true, invitedById: true, form: { select: { ownerId: true } } },
   });
   let accepted = 0;

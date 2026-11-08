@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   db: {
     user: { findUnique: vi.fn(), upsert: vi.fn() },
     formInvite: { findMany: vi.fn() },
+    googleConnection: { findMany: vi.fn(async () => [] as Array<{ email: string }>) },
     $transaction: vi.fn(),
   },
   tx: { formCollaborator: { upsert: vi.fn() }, formInvite: { delete: vi.fn() } },
@@ -47,7 +48,7 @@ const { acceptPendingInvites, profileFromPerson, upsertUser } = await import("@/
 
 const USER_ID = "3f2b8c1e-5d4a-4b6f-9c2e-1a7d8e9f0b12";
 const tokens = { accessToken: "at", refreshToken: "rt", expiresAt: nowSeconds() + 3600 };
-const userRow = (patch: Record<string, unknown> = {}) => ({ id: USER_ID, aiesecPersonId: 5099966n, fullName: "Lina Haddad", email: "lina@example.org", photoUrl: null, officeName: "Beirut", positionTitle: "LCVP", ...patch });
+const userRow = (patch: Record<string, unknown> = {}) => ({ id: USER_ID, aiesecPersonId: 5099966n, fullName: "Lina Haddad", email: "lina@example.org", photoUrl: null, officeName: "Beirut", positionTitle: "LCVP", googleConnections: [], ...patch });
 
 afterEach(() => {
   m.cookies.clear();
@@ -67,7 +68,10 @@ describe("current user (database mocked through the client)", () => {
     m.cookies.set(SESSION_COOKIE, await sealSession(newSessionPayload({ userId: USER_ID, personId: "5099966", tokens })));
     m.db.user.findUnique.mockResolvedValueOnce(userRow());
     expect(await fresh.getSession()).toMatchObject({ uid: USER_ID });
-    expect(await fresh.getCurrentUser()).toMatchObject({ id: USER_ID, aiesecPersonId: "5099966", isAdmin: false });
+    expect(await fresh.getCurrentUser()).toMatchObject({ id: USER_ID, aiesecPersonId: "5099966", isAdmin: false, email: "lina@example.org", workEmail: null });
+    // The connected AIESEC Google account is their work email.
+    m.db.user.findUnique.mockResolvedValueOnce(userRow({ googleConnections: [{ email: "lina.haddad@aiesec.net" }] }));
+    expect(await fresh.getCurrentUser()).toMatchObject({ workEmail: "lina.haddad@aiesec.net" });
     m.db.user.findUnique.mockResolvedValueOnce(userRow({ aiesecPersonId: 1n }));
     expect(await fresh.getCurrentUser()).toBeNull();
     m.cookies.clear();
@@ -149,7 +153,10 @@ describe("sign-in records (database mocked)", () => {
     expect(m.db.user.upsert.mock.calls[0][0].where).toEqual({ aiesecPersonId: 5099966n });
 
     expect(await signIn.acceptPendingInvites(userRow({ email: null }) as never)).toBe(0);
+    // Invites to their AIESEC address (from a connected Google account) count too.
+    m.db.googleConnection.findMany.mockResolvedValueOnce([{ email: "Lina.Haddad@aiesec.net" }, { email: "lina@example.org" }]);
     m.db.formInvite.findMany.mockResolvedValueOnce([
+
       { id: "i1", formId: "f1", invitedById: "o1", form: { ownerId: "o1" } },
       { id: "i2", formId: "f2", invitedById: "o2", form: { ownerId: USER_ID } },
       { id: "i3", formId: "f3", invitedById: "o3", form: { ownerId: "o3" } },
@@ -160,6 +167,7 @@ describe("sign-in records (database mocked)", () => {
       .mockRejectedValueOnce(new Error("conflict"));
     expect(await signIn.acceptPendingInvites(userRow() as never)).toBe(1);
     expect(m.tx.formInvite.delete).toHaveBeenCalledTimes(2);
+    expect(m.db.formInvite.findMany.mock.calls.at(-1)?.[0].where.email).toEqual({ in: ["lina@example.org", "lina.haddad@aiesec.net"] });
   });
 
   it("exports the shared helpers", () => {

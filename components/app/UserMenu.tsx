@@ -9,7 +9,7 @@ import { Avatar } from "@/components/aiesec";
 import { Menu } from "./Menu";
 
 type Props = {
-  user: { fullName: string; email: string | null; photoUrl: string | null; positionTitle: string | null; officeName: string | null; isAdmin: boolean };
+  user: { fullName: string; email: string | null; workEmail: string | null; photoUrl: string | null; positionTitle: string | null; officeName: string | null; isAdmin: boolean };
 };
 
 /** The account card: who's signed in, settings, admin activity and sign out. Opens below the header, aligned to the avatar. */
@@ -37,7 +37,7 @@ export function UserMenu({ user }: Props) {
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate ae-label text-text">{user.fullName}</span>
                   {role && <span className="truncate ae-caption text-text-muted">{role}</span>}
-                  {user.email && <span className="truncate ae-caption text-text-muted">{user.email}</span>}
+                  {(user.workEmail ?? user.email) && <span className="truncate ae-caption text-text-muted">{user.workEmail ?? user.email}</span>}
                 </div>
               </div>
             ),

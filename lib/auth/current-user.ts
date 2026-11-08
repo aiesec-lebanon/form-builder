@@ -14,6 +14,8 @@ export type CurrentUser = {
   aiesecPersonId: string;
   fullName: string;
   email: string | null;
+  /** The AIESEC Google account they connected (their work email), if any. */
+  workEmail: string | null;
   photoUrl: string | null;
   officeName: string | null;
   positionTitle: string | null;
@@ -30,13 +32,17 @@ export const getSession = cache(async () => {
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getSession();
   if (!session) return null;
-  const user = await db.user.findUnique({ where: { id: session.uid } });
+  const user = await db.user.findUnique({
+    where: { id: session.uid },
+    include: { googleConnections: { where: { status: "active" }, select: { email: true }, orderBy: { createdAt: "asc" }, take: 1 } },
+  });
   if (!user || user.aiesecPersonId.toString() !== session.pid) return null;
   return {
     id: user.id,
     aiesecPersonId: user.aiesecPersonId.toString(),
     fullName: user.fullName,
     email: user.email,
+    workEmail: user.googleConnections[0]?.email ?? null,
     photoUrl: user.photoUrl,
     officeName: user.officeName,
     positionTitle: user.positionTitle,

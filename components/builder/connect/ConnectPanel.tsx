@@ -31,6 +31,7 @@ const GOOGLE_ERRORS: Record<string, string> = {
   expired: "That Google sign-in expired. Try again.",
   drive_scope: "Allow access to files created by AIESEC Forms, then try again.",
   not_configured: "Google isn't set up on this server yet.",
+  domain: "Connect your AIESEC Google account (your @aiesec.net email). Sheets and upload folders are created in that account's Drive, so personal accounts can't be used.",
   failed: "Google couldn't be connected. Try again.",
 };
 

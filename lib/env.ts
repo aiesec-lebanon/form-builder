@@ -49,6 +49,8 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: optionalText,
   /** Google Picker (choose a Sheet or folder): a browser API key and the Cloud project number. */
   GOOGLE_API_KEY: optionalText,
+  /** Google Workspace domains whose accounts can be connected, comma-separated. Default aiesec.net; "*" allows any Google account. */
+  GOOGLE_ALLOWED_DOMAINS: optionalText,
   GOOGLE_PROJECT_NUMBER: optionalText,
   TURNSTILE_SITE_KEY: optionalText,
   TURNSTILE_SECRET_KEY: optionalText,
@@ -78,6 +80,20 @@ export function baseUrl(): string {
 export function googleConfigured(): boolean {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env();
   return Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+}
+
+/**
+ * Workspace domains a connected Google account must belong to (files are
+ * created in that account's Drive), or null when any account is allowed.
+ */
+export function googleAllowedDomains(): string[] | null {
+  const raw = env().GOOGLE_ALLOWED_DOMAINS ?? "aiesec.net";
+  if (raw === "*") return null;
+  const domains = raw
+    .split(",")
+    .map((domain) => domain.trim().toLowerCase())
+    .filter(Boolean);
+  return domains.length ? domains : null;
 }
 
 /** Google Picker settings, or null when choosing files from Drive isn't set up. */

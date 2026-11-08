@@ -16,6 +16,7 @@ const NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
   expired: { tone: "danger", text: "That Google sign-in expired. Try again." },
   drive_scope: { tone: "danger", text: "Allow access to files created by AIESEC Forms, then try again." },
   not_configured: { tone: "danger", text: "Google isn't set up on this server yet." },
+  domain: { tone: "danger", text: "Connect your AIESEC Google account (your @aiesec.net email). Sheets and upload folders are created in that account's Drive, so personal accounts can't be used." },
   failed: { tone: "danger", text: "Google couldn't be connected. Try again." },
 };
 

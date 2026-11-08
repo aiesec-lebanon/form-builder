@@ -79,7 +79,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       googlePicker={Boolean(googlePickerConfig())}
       googleAccounts={googleAccounts}
       initialTab={initialTab}
-      replyFrom={user.email}
+      replyFrom={user.workEmail ?? user.email}
       messages={messages.map((message) => ({ ...message, createdAt: message.createdAt.toISOString(), readAt: message.readAt?.toISOString() ?? null }))}
       collaborators={collaboration ? <CollaboratorsPanel formId={form.id} initial={collaboration} /> : null}
     />

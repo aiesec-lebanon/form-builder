@@ -166,7 +166,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
               </Alert>
             ) : googleAccounts.length === 0 ? (
               <div className="flex flex-col items-start gap-3">
-                <p className="ae-body">Connect a Google account once. We only get access to files AIESEC Forms creates or you choose, nothing else in your Drive.</p>
+                <p className="ae-body">Connect your AIESEC Google account once. Sheets and upload folders are created in its Drive, and we only get access to files AIESEC Forms creates or you choose.</p>
                 <Button as="a" href={connectHref} variant="primary">
                   Connect Google
                 </Button>

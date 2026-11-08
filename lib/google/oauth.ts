@@ -22,7 +22,12 @@ export function googleCookieOptions(maxAge = 600) {
   return { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/api/google", maxAge };
 }
 
-export function googleAuthorizeUrl(state: string, loginHint?: string | null): string {
+/**
+ * Google's consent URL. `hostedDomain` asks Google to offer only accounts of
+ * that Workspace domain ("*" = any Workspace account); it's a hint, the
+ * callback still checks the account's domain.
+ */
+export function googleAuthorizeUrl(state: string, hints: { loginHint?: string | null; hostedDomain?: string | null } = {}): string {
   const params = new URLSearchParams({
     client_id: env().GOOGLE_CLIENT_ID ?? "",
     redirect_uri: googleRedirectUri(),
@@ -33,7 +38,8 @@ export function googleAuthorizeUrl(state: string, loginHint?: string | null): st
     include_granted_scopes: "true",
     state,
   });
-  if (loginHint) params.set("login_hint", loginHint);
+  if (hints.loginHint) params.set("login_hint", hints.loginHint);
+  if (hints.hostedDomain) params.set("hd", hints.hostedDomain);
   return `${AUTHORIZE_URL}?${params.toString()}`;
 }
 
@@ -82,12 +88,13 @@ async function tokenRequest(params: Record<string, string>) {
 }
 
 /** Identity claims from an id_token received directly from Google over TLS (OIDC §3.1.3.7 allows skipping signature checks here). */
-function claimsOf(idToken: string | undefined): { sub: string; email: string; emailVerified: boolean } | null {
+function claimsOf(idToken: string | undefined): { sub: string; email: string; emailVerified: boolean; hostedDomain: string | null } | null {
   if (!idToken) return null;
   try {
-    const payload = JSON.parse(Buffer.from(idToken.split(".")[1], "base64url").toString("utf8")) as { sub?: string; email?: string; email_verified?: boolean };
+    const payload = JSON.parse(Buffer.from(idToken.split(".")[1], "base64url").toString("utf8")) as { sub?: string; email?: string; email_verified?: boolean; hd?: string };
     if (!payload.sub || !payload.email) return null;
-    return { sub: payload.sub, email: payload.email.toLowerCase(), emailVerified: payload.email_verified !== false };
+    // hd is set by Google only for Google Workspace accounts, e.g. "aiesec.net".
+    return { sub: payload.sub, email: payload.email.toLowerCase(), emailVerified: payload.email_verified !== false, hostedDomain: payload.hd?.toLowerCase() ?? null };
   } catch {
     return null;
   }
@@ -106,6 +113,20 @@ export async function exchangeGoogleCode(code: string) {
     scopes: tokens.scope,
     ...claims,
   };
+}
+
+/** Withdraws a grant at Google (best effort, never throws). */
+export async function revokeGoogleToken(token: string): Promise<void> {
+  try {
+    await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    // Revocation is best effort.
+  }
 }
 
 export async function refreshGoogleToken(refreshToken: string) {

@@ -341,6 +341,7 @@ describe("AIESEC sign-in", () => {
 
 describe("Google connection routes", () => {
   const user = { id: "u1", email: "lina@example.org" };
+  const aiesecGrant = { accessToken: "at", refreshToken: "rt", expiresAt: new Date(), scopes: "drive.file", sub: "123", email: "lina@aiesec.net", hostedDomain: "aiesec.net" };
   const callbackRequest = (query: string, cookies: Record<string, string> = { fb_google_state: "g1", fb_google_return_to: "/forms/abc/edit?tab=connect" }) =>
     new NextRequest(`${ORIGIN}/api/google/callback?${query}`, { headers: { cookie: Object.entries(cookies).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("; ") } });
 
@@ -354,16 +355,27 @@ describe("Google connection routes", () => {
     resetEnvCache();
     mocks.getCurrentUser.mockResolvedValueOnce(user);
     const response = await googleConnect.GET(new NextRequest(`${ORIGIN}/api/google/connect?returnTo=/settings`));
-    expect(response.headers.get("location")).toContain("accounts.google.com");
+    const location = new URL(response.headers.get("location") as string);
+    expect(location.host).toBe("accounts.google.com");
     expect(response.cookies.get("fb_google_state")?.value).toBeTruthy();
+    // Steered to the AIESEC Workspace; a personal EXPA email is never suggested.
+    expect(location.searchParams.get("hd")).toBe("aiesec.net");
+    expect(location.searchParams.has("login_hint")).toBe(false);
+    mocks.getCurrentUser.mockResolvedValueOnce({ ...user, email: "lina@aiesec.net" });
+    expect(new URL((await googleConnect.GET(new NextRequest(`${ORIGIN}/api/google/connect`))).headers.get("location") as string).searchParams.get("login_hint")).toBe("lina@aiesec.net");
+    vi.stubEnv("GOOGLE_ALLOWED_DOMAINS", "*");
+    resetEnvCache();
+    mocks.getCurrentUser.mockResolvedValueOnce(user);
+    expect(new URL((await googleConnect.GET(new NextRequest(`${ORIGIN}/api/google/connect`))).headers.get("location") as string).searchParams.has("hd")).toBe(false);
   });
 
   it("stores the connection and reports problems back to the page", async () => {
     mocks.getCurrentUser.mockResolvedValue(user);
-    mocks.exchangeGoogleCode.mockResolvedValueOnce({ accessToken: "at", refreshToken: "rt", expiresAt: new Date(), scopes: "drive.file", sub: "123", email: "lina@gmail.com" });
+    mocks.exchangeGoogleCode.mockResolvedValueOnce(aiesecGrant);
     mocks.db.googleConnection.upsert.mockResolvedValueOnce({ id: "c1" });
     expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toBe(`${ORIGIN}/forms/abc/edit?tab=connect&google=connected`);
     expect(mocks.db.googleConnection.upsert.mock.calls[0][0].create.refreshTokenEnc).not.toBe("rt");
+    expect(mocks.acceptPendingInvites).toHaveBeenCalledWith(user, ["lina@aiesec.net"]);
 
     expect((await googleCallback.GET(callbackRequest("error=access_denied"))).headers.get("location")).toContain("google_error=denied");
     expect((await googleCallback.GET(callbackRequest("code=x&state=other"))).headers.get("location")).toContain("google_error=expired");
@@ -372,6 +384,24 @@ describe("Google connection routes", () => {
     expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toContain("google_error=drive_scope");
     mocks.getCurrentUser.mockResolvedValueOnce(null);
     expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toContain("/login");
+  });
+
+  it("refuses personal and other-domain Google accounts, and withdraws their grant", async () => {
+    mocks.getCurrentUser.mockResolvedValue(user);
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.exchangeGoogleCode.mockResolvedValueOnce({ ...aiesecGrant, email: "lina@gmail.com", hostedDomain: null });
+    expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toContain("google_error=domain");
+    mocks.exchangeGoogleCode.mockResolvedValueOnce({ ...aiesecGrant, email: "lina@other.org", hostedDomain: "other.org" });
+    expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toContain("google_error=domain");
+    expect(mocks.db.googleConnection.upsert).not.toHaveBeenCalled();
+    expect(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[0])).toContain("oauth2.googleapis.com/revoke");
+    // Any account when the domain check is off.
+    vi.stubEnv("GOOGLE_ALLOWED_DOMAINS", "*");
+    resetEnvCache();
+    mocks.exchangeGoogleCode.mockResolvedValueOnce({ ...aiesecGrant, email: "lina@gmail.com", hostedDomain: null });
+    mocks.db.googleConnection.upsert.mockResolvedValueOnce({ id: "c2" });
+    expect((await googleCallback.GET(callbackRequest("code=x&state=g1"))).headers.get("location")).toContain("google=connected");
   });
 });
 
