@@ -8,6 +8,7 @@ import { Alert, Button, Switch, Tabs, TextField, useToast } from "@/components/a
 import { setAcceptingResponses, updateSlug } from "@/actions/publish";
 import { CopyBlock } from "@/components/app/CopyBlock";
 
+import { EmbedSites } from "./EmbedSites";
 import { Sheet } from "./Sheet";
 
 type Props = {
@@ -20,6 +21,8 @@ type Props = {
   published: boolean;
   acceptingResponses: boolean;
   onAccepting: (accepting: boolean) => void;
+  embedDomains: string[];
+  onEmbedDomains: (domains: string[]) => void;
   publicBaseUrl: string;
   onPublish: () => void;
 };
@@ -35,7 +38,7 @@ export function ShareDialog(props: Props) {
   );
 }
 
-function ShareBody({ formId, title, slug, onSlug, published, acceptingResponses, onAccepting, publicBaseUrl, onPublish }: Props) {
+function ShareBody({ formId, title, slug, onSlug, published, acceptingResponses, onAccepting, embedDomains, onEmbedDomains, publicBaseUrl, onPublish }: Props) {
   const toast = useToast();
   const [tab, setTab] = React.useState<Tab>("link");
   const [editing, setEditing] = React.useState(false);
@@ -150,6 +153,9 @@ function ShareBody({ formId, title, slug, onSlug, published, acceptingResponses,
           <CopyBlock label="Iframe code" value={embedIframe} />
         </div>
       </details>
+      <div className="border-t border-border pt-4">
+        <EmbedSites formId={formId} domains={embedDomains} onChange={onEmbedDomains} />
+      </div>
     </div>
   );
 

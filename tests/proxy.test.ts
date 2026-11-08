@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { newSessionPayload, nowSeconds, sealSession, SESSION_COOKIE, unsealSession } from "@/lib/auth/session";
 import { proxy } from "@/proxy";
 
+const embedFrameAncestors = vi.fn(async (slug: string) => (slug === "members-only" ? "frame-ancestors 'self' https://aiesec.org" : "frame-ancestors *"));
+vi.mock("@/lib/forms/embed-policy", () => ({ embedFrameAncestors: (slug: string) => embedFrameAncestors(slug) }));
+
 const USER_ID = "3f2b8c1e-5d4a-4b6f-9c2e-1a7d8e9f0b12";
 
 async function cookieFor(expiresInSeconds: number, refreshToken: string | null = "rt-1") {
@@ -50,6 +53,19 @@ describe("proxy gate", () => {
     const response = await proxy(request("/embed/abc123"));
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors *");
     expect(response.headers.get("x-frame-options")).toBeNull();
+  });
+
+  it("limits framing to the form's allowed websites", async () => {
+    const response = await proxy(request("/embed/members-only?theme=dark"));
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'self' https://aiesec.org;");
+    expect(embedFrameAncestors).toHaveBeenLastCalledWith("members-only");
+  });
+
+  it("skips the lookup for paths that can't be a form", async () => {
+    embedFrameAncestors.mockClear();
+    const response = await proxy(request("/embed/Not_A%20Slug"));
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors *");
+    expect(embedFrameAncestors).not.toHaveBeenCalled();
   });
 
   it("passes valid sessions without touching the token", async () => {

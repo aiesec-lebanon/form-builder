@@ -35,6 +35,7 @@ export type BuilderForm = {
   publishedRevision: number | null;
   publishedAt: string | null;
   acceptingResponses: boolean;
+  embedDomains: string[];
   closesAt: string | null;
   responseLimit: number | null;
   responseCount: number;
@@ -383,6 +384,8 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         published={published}
         acceptingResponses={form.acceptingResponses}
         onAccepting={(acceptingResponses) => setForm((current) => ({ ...current, acceptingResponses }))}
+        embedDomains={form.embedDomains}
+        onEmbedDomains={(embedDomains) => setForm((current) => ({ ...current, embedDomains }))}
         publicBaseUrl={publicBaseUrl}
         onPublish={() => {
           setShareOpen(false);

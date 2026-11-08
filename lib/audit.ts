@@ -17,6 +17,7 @@ export type AuditType =
   | "form.published"
   | "form.closed"
   | "form.reopened"
+  | "form.embed_sites_changed"
   | "form.trashed"
   | "form.restored"
   | "form.ownership_transferred"

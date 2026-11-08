@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { prepareDestinations } from "@/lib/destinations/prepare";
 import { getFormAccess } from "@/lib/forms/access";
+import { MAX_EMBED_DOMAINS, parseEmbedDomains } from "@/lib/forms/embed-domains";
 import { publishProblems, type PublishProblem } from "@/lib/forms/publish-checks";
 import { parseDocument } from "@/lib/forms/schema";
 import { normalizeSlug, slugProblem } from "@/lib/forms/slug";
@@ -110,6 +111,27 @@ export async function updateResponseRules(formId: string, input: z.input<typeof 
 }
 
 /** Opens or closes the live form to new responses. */
+/** Websites allowed to embed the form (ADR-011); an empty list allows any site. Applies within a minute, no republish. */
+export async function setEmbedDomains(formId: string, sites: string[]): Promise<ActionResult<{ embedDomains: string[] }>> {
+  const user = await getCurrentUser();
+  if (!user) return fail(SIGNED_OUT);
+  const access = await getFormAccess(formId, user.id, "edit");
+  if (!access) return fail(NOT_FOUND);
+  const input = z.array(z.string().max(300)).max(MAX_EMBED_DOMAINS * 2).safeParse(sites);
+  if (!input.success) return fail(`List up to ${MAX_EMBED_DOMAINS} websites.`);
+  const parsed = parseEmbedDomains(input.data);
+  if (!parsed.ok) return fail(parsed.error);
+  await db.form.update({ where: { id: formId }, data: { embedDomains: parsed.domains } });
+  await recordAudit({
+    type: "form.embed_sites_changed",
+    actorId: user.id,
+    target: { type: "form", id: formId },
+    metadata: { count: parsed.domains.length, sites: parsed.domains.join(", ").slice(0, 500) },
+    ...(await meta()),
+  });
+  return ok({ embedDomains: parsed.domains });
+}
+
 export async function setAcceptingResponses(formId: string, accepting: boolean): Promise<ActionResult<{ acceptingResponses: boolean }>> {
   const user = await getCurrentUser();
   if (!user) return fail(SIGNED_OUT);

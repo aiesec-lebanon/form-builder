@@ -61,6 +61,8 @@ model Form {
   responseLimit      Int?      @map("response_limit")
   /// Public page views (aggregate only), for completion rates.
   viewCount          Int       @default(0) @map("view_count")
+  /// Sites allowed to embed the form ("aiesec.org", "*.aiesec.org"); empty = any site. Applies without republishing.
+  embedDomains       String[]  @default([]) @map("embed_domains")
   responseCount      Int       @default(0) @map("response_count")
   lastResponseAt     DateTime? @map("last_response_at") @db.Timestamptz(6)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)

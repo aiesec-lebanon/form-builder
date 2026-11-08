@@ -20,6 +20,7 @@ const EVENT_LABELS: Record<string, string> = {
   "form.published": "Published a form",
   "form.closed": "Closed a form",
   "form.reopened": "Reopened a form",
+  "form.embed_sites_changed": "Changed where a form can be embedded",
   "form.trashed": "Moved a form to trash",
   "form.restored": "Restored a form",
   "form.ownership_transferred": "Transferred ownership",

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { OAuthError, refreshTokens } from "@/lib/auth/oauth";
 import { needsRefresh, nowSeconds, sealSession, SESSION_COOKIE, sessionCookieOptions, unsealSession, withRefreshedTokens } from "@/lib/auth/session";
+import { embedFrameAncestors } from "@/lib/forms/embed-policy";
 import { logger } from "@/lib/logger";
 
 // First gate for every request (ADR-002): session check for app routes, inline
@@ -20,6 +21,15 @@ function isEmbed(pathname: string): boolean {
   return pathname.startsWith("/embed/");
 }
 
+const SLUG = /^[a-z0-9-]{1,80}$/;
+
+/** Where /embed/<slug> may be framed: the form's allowlist (ADR-011); anywhere for paths that can't be a form. */
+async function embedFraming(request: NextRequest): Promise<string> {
+  const slug = request.nextUrl.pathname.split("/")[2] ?? "";
+  if (request.method !== "GET" || !SLUG.test(slug)) return "frame-ancestors *";
+  return embedFrameAncestors(slug);
+}
+
 function isApi(pathname: string): boolean {
   return pathname.startsWith("/api/");
 }
@@ -33,7 +43,7 @@ function isDocumentNavigation(request: NextRequest): boolean {
   return (request.headers.get("accept") ?? "").includes("text/html");
 }
 
-function contentSecurityPolicy(nonce: string, embed: boolean, isDev: boolean): string {
+function contentSecurityPolicy(nonce: string, frameAncestors: string, isDev: boolean): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
@@ -49,7 +59,7 @@ function contentSecurityPolicy(nonce: string, embed: boolean, isDev: boolean): s
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    embed ? "frame-ancestors *" : "frame-ancestors 'none'",
+    frameAncestors,
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
@@ -82,7 +92,7 @@ export async function proxy(request: NextRequest) {
   const isDev = process.env.NODE_ENV === "development";
   const embed = isEmbed(pathname);
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
-  const csp = contentSecurityPolicy(nonce, embed, isDev);
+  const csp = contentSecurityPolicy(nonce, embed ? await embedFraming(request) : "frame-ancestors 'none'", isDev);
 
   const forward = (extraCookie?: string) => {
     const headers = new Headers(request.headers);
