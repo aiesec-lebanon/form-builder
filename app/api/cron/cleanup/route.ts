@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { pruneRateLimits } from "@/lib/rate-limit";
+import { cleanOrphanedUploads } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,11 @@ export async function GET(request: NextRequest) {
     db.form.deleteMany({ where: { deletedAt: { lt: new Date(Date.now() - TRASH_DAYS * day) } } }).then((result) => result.count),
     db.auditEvent.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - AUDIT_DAYS * day) } } }).then((result) => result.count),
   ]);
-  logger.info("cron.cleanup", { rateLimits, trashedForms, auditEvents, ms: Date.now() - started });
-  return NextResponse.json({ ok: true, rateLimits, trashedForms, auditEvents });
+  // Google calls are slower; after the database work, never failing the run.
+  const uploads = await cleanOrphanedUploads().catch((error) => {
+    logger.warn("cron.uploads_failed", { error });
+    return { folders: 0, trashed: 0, failedFolders: 0 };
+  });
+  logger.info("cron.cleanup", { rateLimits, trashedForms, auditEvents, uploads, ms: Date.now() - started });
+  return NextResponse.json({ ok: true, rateLimits, trashedForms, auditEvents, uploads });
 }

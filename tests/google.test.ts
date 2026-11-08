@@ -9,8 +9,10 @@ import {
   createSpreadsheet,
   getFile,
   GoogleApiError,
+  listFolderFiles,
   setFileProperties,
   sheetTitleById,
+  trashFile,
   startResumableUpload,
   writeHeaderRow,
 } from "@/lib/google/api";
@@ -132,6 +134,18 @@ describe("Google access tokens", () => {
     stubFetch(json({ error: "invalid_grant" }, 400));
     await expect(googleAccessToken("c1")).rejects.toBeInstanceOf(GoogleAuthError);
     expect(db.googleConnection.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { status: "revoked", accessTokenEnc: null, accessTokenExpiresAt: null } });
+  });
+});
+
+describe("Drive cleanup calls", () => {
+  it("lists a folder's files and moves files to the trash", async () => {
+    const fetchMock = stubFetch(json({ files: [{ id: "a", createdTime: "2026-11-01T00:00:00Z" }], nextPageToken: "next" }), json({ files: [] }), json({ id: "a" }));
+    expect(await listFolderFiles("tok", "folder'0001")).toEqual({ files: [{ id: "a", createdTime: "2026-11-01T00:00:00Z" }], nextPageToken: "next" });
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("q")).toBe("'folder\\'0001' in parents and trashed = false");
+    await listFolderFiles("tok", "folder-0001", "next");
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("pageToken")).toBe("next");
+    await trashFile("tok", "a");
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1].body))).toEqual({ trashed: true });
   });
 });
 

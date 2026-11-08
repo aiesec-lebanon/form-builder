@@ -135,3 +135,22 @@ export async function startResumableUpload(
   }
   return location;
 }
+
+export type ListedFile = { id: string; createdTime: string; appProperties?: Record<string, string> };
+
+/** Files this app created in a folder (drive.file only ever sees our own files). */
+export async function listFolderFiles(token: string, folderId: string, pageToken?: string): Promise<{ files: ListedFile[]; nextPageToken?: string }> {
+  const params = new URLSearchParams({
+    q: `'${folderId.replace(/['\\]/g, "\\$&")}' in parents and trashed = false`,
+    fields: "nextPageToken,files(id,createdTime,appProperties)",
+    pageSize: "200",
+    orderBy: "createdTime",
+  });
+  if (pageToken) params.set("pageToken", pageToken);
+  return call(token, `${DRIVE}?${params.toString()}`);
+}
+
+/** Moves a file to the owner's Drive trash (restorable for 30 days). */
+export async function trashFile(token: string, fileId: string): Promise<void> {
+  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id`, { method: "PATCH", body: JSON.stringify({ trashed: true }) });
+}

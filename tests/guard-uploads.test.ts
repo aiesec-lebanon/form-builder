@@ -22,12 +22,20 @@ vi.mock("undici", () => ({
 
 const store = vi.hoisted(() => ({ loadDestinations: vi.fn() }));
 vi.mock("@/lib/destinations/store", () => store);
-const google = vi.hoisted(() => ({ getFile: vi.fn(), googleAccessToken: vi.fn() }));
-vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), getFile: google.getFile }));
+const google = vi.hoisted(() => ({ getFile: vi.fn(), googleAccessToken: vi.fn(), setFileProperties: vi.fn(), listFolderFiles: vi.fn(), trashFile: vi.fn() }));
+vi.mock("@/lib/google/api", async (original) => ({
+  ...(await original<typeof import("@/lib/google/api")>()),
+  getFile: google.getFile,
+  setFileProperties: google.setFileProperties,
+  listFolderFiles: google.listFolderFiles,
+  trashFile: google.trashFile,
+}));
+const db = vi.hoisted(() => ({ destination: { findMany: vi.fn() } }));
+vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: google.googleAccessToken }));
 
 const { assertPublicHttpsUrl, BlockedHostError, guardedFetch, resolvePublicHost } = await import("@/lib/net/guard");
-const { driveFileName, filesDestination, resolveUploadedFiles } = await import("@/lib/uploads");
+const { cleanOrphanedUploads, driveFileName, filesDestination, markFilesSubmitted, resolveUploadedFiles } = await import("@/lib/uploads");
 const { GoogleAuthError } = await import("@/lib/google/oauth");
 
 afterEach(() => {
@@ -132,5 +140,48 @@ describe("uploaded files", () => {
     expect(await resolveUploadedFiles(input([{ fileId: "file-1", name: "cv.pdf", size: 1 }]))).toMatchObject({ ok: false, status: 502, message: expect.stringContaining("Reconnect Google") });
     store.loadDestinations.mockResolvedValueOnce([]);
     expect(await resolveUploadedFiles(input([]))).toEqual({ ok: false, status: 502, message: "File uploads aren't set up for this form." });
+  });
+});
+
+describe("abandoned uploads", () => {
+  const drive = { googleConnectionId: "c1", config: { folderId: "folder-0001", folderUrl: "https://drive.google.com/drive/folders/folder-0001" } };
+  const day = 24 * 60 * 60 * 1000;
+  const now = Date.parse("2026-11-20T00:00:00Z");
+  const file = (id: string, ageDays: number, appProperties: Record<string, string> | undefined) => ({ id, createdTime: new Date(now - ageDays * day).toISOString(), appProperties });
+
+  it("marks a sent response's files, and never throws", async () => {
+    await markFilesSubmitted("form-1", []);
+    expect(store.loadDestinations).not.toHaveBeenCalled();
+    store.loadDestinations.mockResolvedValueOnce([drive]);
+    google.googleAccessToken.mockResolvedValueOnce("tok");
+    google.setFileProperties.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("gone"));
+    await markFilesSubmitted("form-1", ["file-a", "file-b"]);
+    expect(google.setFileProperties).toHaveBeenCalledWith("tok", "file-a", { submitted: "1" });
+    store.loadDestinations.mockResolvedValueOnce([]);
+    await markFilesSubmitted("form-1", ["file-a"]);
+    store.loadDestinations.mockResolvedValueOnce([drive]);
+    google.googleAccessToken.mockRejectedValueOnce(new Error("revoked"));
+    await expect(markFilesSubmitted("form-1", ["file-a"])).resolves.toBeUndefined();
+  });
+
+  it("trashes only our week-old files that never became part of a response", async () => {
+    db.destination.findMany.mockResolvedValueOnce([
+      { id: "d1", formId: "form-1", ...drive },
+      { id: "d2", formId: "form-2", googleConnectionId: "c2", config: { broken: true } },
+      { id: "d3", formId: "form-3", googleConnectionId: "c3", config: drive.config },
+    ]);
+    google.googleAccessToken.mockImplementation(async (connectionId: string) => {
+      if (connectionId === "c3") throw new Error("revoked");
+      return "tok";
+    });
+    google.listFolderFiles
+      .mockResolvedValueOnce({
+        files: [file("old-orphan", 9, { aiesecForms: "1" }), file("sent", 9, { aiesecForms: "1", submitted: "1" }), file("recent", 2, { aiesecForms: "1" })],
+        nextPageToken: "p2",
+      })
+      .mockResolvedValueOnce({ files: [file("owner-file", 30, undefined), file("old-orphan-2", 8, { aiesecForms: "1" })] });
+    google.trashFile.mockResolvedValue(undefined);
+    expect(await cleanOrphanedUploads(now)).toEqual({ folders: 2, trashed: 2, failedFolders: 1 });
+    expect(google.trashFile.mock.calls.map((call) => call[1])).toEqual(["old-orphan", "old-orphan-2"]);
   });
 });

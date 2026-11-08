@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   deliverToSecondaries: vi.fn(),
   resolveUploadedFiles: vi.fn(),
   filesDestination: vi.fn(),
+  markFilesSubmitted: vi.fn(),
+  cleanOrphanedUploads: vi.fn(),
   verifyTurnstile: vi.fn(),
   currentRespondent: vi.fn(),
   claimResponse: vi.fn(),
@@ -39,7 +41,7 @@ vi.mock("@/lib/db", () => ({ db: mocks.db }));
 vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (task: () => unknown) => void task() }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit, pruneRateLimits: mocks.pruneRateLimits }));
 vi.mock("@/lib/destinations/deliver", () => ({ deliverToPrimary: mocks.deliverToPrimary, deliverToSecondaries: mocks.deliverToSecondaries }));
-vi.mock("@/lib/uploads", async (original) => ({ ...(await original<typeof import("@/lib/uploads")>()), resolveUploadedFiles: mocks.resolveUploadedFiles, filesDestination: mocks.filesDestination }));
+vi.mock("@/lib/uploads", async (original) => ({ ...(await original<typeof import("@/lib/uploads")>()), resolveUploadedFiles: mocks.resolveUploadedFiles, filesDestination: mocks.filesDestination, markFilesSubmitted: mocks.markFilesSubmitted, cleanOrphanedUploads: mocks.cleanOrphanedUploads }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/forms/respondents", async (original) => ({
   ...(await original<typeof import("@/lib/forms/respondents")>()),
@@ -175,6 +177,7 @@ describe("submit endpoint", () => {
     expect((await submit.POST(post("/api/f/recruitment/submit", submission({ answers })), params)).status).toBe(502);
     mocks.resolveUploadedFiles.mockResolvedValueOnce({ ok: true, values: { [cv.id]: [{ name: "cv.pdf", url: "https://drive/x", size: 10, mimeType: "application/pdf" }] } });
     expect((await submit.POST(post("/api/f/recruitment/submit", submission({ answers })), params)).status).toBe(200);
+    expect(mocks.markFilesSubmitted).toHaveBeenCalledWith(FORM_ID, ["drive-file-0001"]);
   });
 
   it("enforces AIESEC sign-in, membership and one response per person", async () => {
@@ -374,8 +377,15 @@ describe("housekeeping and health", () => {
     mocks.pruneRateLimits.mockResolvedValueOnce(3);
     mocks.db.form.deleteMany.mockResolvedValueOnce({ count: 2 });
     mocks.db.auditEvent.deleteMany.mockResolvedValueOnce({ count: 1 });
+    mocks.cleanOrphanedUploads.mockResolvedValueOnce({ folders: 2, trashed: 5, failedFolders: 0 });
     const response = await cron.GET(new NextRequest(`${ORIGIN}/api/cron/cleanup`, { headers: { authorization: "Bearer test-cron-secret" } }));
-    expect(await response.json()).toEqual({ ok: true, rateLimits: 3, trashedForms: 2, auditEvents: 1 });
+    expect(await response.json()).toEqual({ ok: true, rateLimits: 3, trashedForms: 2, auditEvents: 1, uploads: { folders: 2, trashed: 5, failedFolders: 0 } });
+    mocks.pruneRateLimits.mockResolvedValueOnce(0);
+    mocks.db.form.deleteMany.mockResolvedValueOnce({ count: 0 });
+    mocks.db.auditEvent.deleteMany.mockResolvedValueOnce({ count: 0 });
+    mocks.cleanOrphanedUploads.mockRejectedValueOnce(new Error("drive down"));
+    const degraded = await cron.GET(new NextRequest(`${ORIGIN}/api/cron/cleanup`, { headers: { authorization: "Bearer test-cron-secret" } }));
+    expect(await degraded.json()).toMatchObject({ uploads: { folders: 0, trashed: 0, failedFolders: 0 } });
   });
 
   it("reports database reachability", async () => {

@@ -5,8 +5,10 @@ import { loadDestinations } from "@/lib/destinations/store";
 import { driveConfig } from "@/lib/destinations/types";
 import type { AnswerValue, FileAnswer, ResolvedFile } from "@/lib/forms/fields";
 import type { Field } from "@/lib/forms/schema";
-import { getFile } from "@/lib/google/api";
+import { db } from "@/lib/db";
+import { getFile, listFolderFiles, setFileProperties, trashFile } from "@/lib/google/api";
 import { googleAccessToken } from "@/lib/google/tokens";
+import { logger } from "@/lib/logger";
 
 // Server side of browser-to-Drive uploads (ADR-004).
 
@@ -76,4 +78,63 @@ export async function resolveUploadedFiles(input: { formId: string; responseId: 
     const result = classifyError(error);
     return { ok: false, status: 502, message: result.ok ? "Couldn't check the uploaded files." : result.message };
   }
+}
+
+// --- Abandoned uploads -----------------------------------------------------------
+// A file is uploaded before its response is sent. Sent responses mark their
+// files "submitted"; the daily cron moves files never marked after a week
+// (people keep drafts for a while) to the owner's Drive trash, where they stay
+// restorable for 30 days.
+
+export const ORPHAN_AFTER_DAYS = 7;
+const MAX_TRASHED_PER_FOLDER = 200;
+
+/** After a response was delivered: its files are no longer candidates for cleanup. Never throws. */
+export async function markFilesSubmitted(formId: string, fileIds: string[]): Promise<void> {
+  if (fileIds.length === 0) return;
+  try {
+    const storage = await filesDestination(formId);
+    if (!storage) return;
+    const token = await googleAccessToken(storage.connectionId);
+    await Promise.all(fileIds.map((fileId) => setFileProperties(token, fileId, { submitted: "1" }).catch((error) => logger.warn("uploads.mark_failed", { formId, error }))));
+  } catch (error) {
+    logger.warn("uploads.mark_failed", { formId, error });
+  }
+}
+
+export type OrphanCleanup = { folders: number; trashed: number; failedFolders: number };
+
+/** Trashes this app's uploads that never became part of a response. Never throws. */
+export async function cleanOrphanedUploads(now = Date.now()): Promise<OrphanCleanup> {
+  const cutoff = now - ORPHAN_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  const result: OrphanCleanup = { folders: 0, trashed: 0, failedFolders: 0 };
+  const folders = await db.destination.findMany({
+    where: { type: "google_drive", role: "files", enabled: true, googleConnectionId: { not: null }, googleConnection: { status: "active" } },
+    select: { id: true, formId: true, config: true, googleConnectionId: true },
+  });
+  for (const folder of folders) {
+    const config = driveConfig.safeParse(folder.config);
+    if (!config.success || !folder.googleConnectionId) continue;
+    result.folders += 1;
+    try {
+      const token = await googleAccessToken(folder.googleConnectionId);
+      let pageToken: string | undefined;
+      let trashed = 0;
+      do {
+        const page = await listFolderFiles(token, config.data.folderId, pageToken);
+        const orphans = page.files.filter((file) => file.appProperties?.aiesecForms === "1" && file.appProperties?.submitted !== "1" && Date.parse(file.createdTime) < cutoff);
+        for (const file of orphans) {
+          if (trashed >= MAX_TRASHED_PER_FOLDER) break;
+          await trashFile(token, file.id);
+          trashed += 1;
+        }
+        pageToken = trashed < MAX_TRASHED_PER_FOLDER ? page.nextPageToken : undefined;
+      } while (pageToken);
+      result.trashed += trashed;
+    } catch (error) {
+      result.failedFolders += 1;
+      logger.warn("uploads.cleanup_failed", { destinationId: folder.id, formId: folder.formId, error });
+    }
+  }
+  return result;
 }
