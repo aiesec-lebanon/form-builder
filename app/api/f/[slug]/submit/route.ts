@@ -15,6 +15,7 @@ import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
+import { verifyTurnstile } from "@/lib/turnstile";
 import { resolveUploadedFiles } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ const bodySchema = z.object({
   renderToken: z.string().max(300),
   answers: z.record(z.string().max(32), z.unknown()),
   website: z.string().max(500).optional(),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 /**
@@ -74,6 +76,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     logger.warn("submit.rate_limited", { formId: form.id, scope: perVisitor.allowed ? "form" : "visitor" });
     return jsonError(429, "rate_limited", "Too many responses right now. Wait a minute, then try again.");
   }
+
+  // Bot check (ADR-012), after the cheap checks. The response id lets a retry re-verify the same token.
+  const human = await verifyTurnstile({ token: body.turnstileToken, ip: clientIp(request.headers), idempotencyKey: body.responseId });
+  if (!human.ok) return jsonError(403, "forbidden", "Complete the check above the send button, then send again.", { error: "bot_check" });
 
   const doc = parseDocument(form.published);
   if (!doc) {

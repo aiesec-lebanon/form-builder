@@ -6,6 +6,7 @@ import { FormRenderer } from "@/components/form/FormRenderer";
 import { db } from "@/lib/db";
 import { availability } from "@/lib/forms/availability";
 import { issueRenderToken } from "@/lib/forms/render-token";
+import { turnstileSiteKey } from "@/lib/turnstile";
 import { parseDocument } from "@/lib/forms/schema";
 import { countView } from "@/lib/forms/views";
 
@@ -42,6 +43,7 @@ export default async function EmbedPage({ params, searchParams }: Props) {
         slug={slug}
         publishedRevision={form.publishedRevision ?? 0}
         renderToken={issueRenderToken(form.id)}
+        turnstileSiteKey={turnstileSiteKey()}
         closedReason={open.open ? null : open.reason}
         transparent={transparent}
         themeOverride={theme}

@@ -59,7 +59,7 @@ export default function PrivacyPage() {
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">Filling in a form</h2>
           <p className="ae-body">
-            While you fill in a form, your answers are saved in your own browser so you don&apos;t lose them. They&apos;re cleared once your response is sent. The form&apos;s owner decides what happens to your answers after that; contact them with any questions.
+            While you fill in a form, your answers are saved in your own browser so you don&apos;t lose them. They&apos;re cleared once your response is sent. To stop spam, forms may use Cloudflare Turnstile, which checks that a person is sending the response. The form&apos;s owner decides what happens to your answers after that; contact them with any questions.
           </p>
         </section>
 

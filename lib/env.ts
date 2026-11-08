@@ -47,6 +47,8 @@ const schema = z.object({
     .transform((value) => value === "true"),
   GOOGLE_CLIENT_ID: optionalText,
   GOOGLE_CLIENT_SECRET: optionalText,
+  TURNSTILE_SITE_KEY: optionalText,
+  TURNSTILE_SECRET_KEY: optionalText,
   DEV_LOGIN: optionalText,
 });
 

@@ -12,6 +12,7 @@ import { formThemeAttribute } from "@/lib/forms/theme";
 
 import { linkify } from "./linkify";
 import { Question } from "./Question";
+import { Turnstile } from "./Turnstile";
 import { notifyEmbedSubmitted, useEmbedResize } from "./useEmbedResize";
 
 // What respondents see (spec §9): one page at a time, inline validation,
@@ -32,6 +33,8 @@ type Props = {
   themeOverride?: "light" | "dark";
   /** Fill the viewport (standalone page), so the form's colours reach the edges. */
   fullHeight?: boolean;
+  /** Cloudflare Turnstile site key when the bot check is on (ADR-012). */
+  turnstileSiteKey?: string | null;
 };
 
 type Status = "filling" | "sending" | "sent" | "failed" | "closed";
@@ -51,6 +54,7 @@ const SEND_ERRORS: Record<string, string> = {
   delivery_failed: "We couldn't send your response just now. Your answers are saved on this device, so you can try again.",
   invalid_token: "This page has been open for a long time. Reload it, then send again. Your answers are kept.",
   too_fast: "That was quick. Wait a moment, then send again.",
+  bot_check: "We need to check you're not a bot. Complete the check above the button, then send again.",
   default: "Something went wrong while sending. Your answers are saved on this device, so you can try again.",
 };
 
@@ -60,7 +64,7 @@ const CLOSED_COPY: Record<ClosedReason, string> = {
   full: "It has received all the responses it needs. Thanks for your interest.",
 };
 
-export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closedReason = null, transparent = false, themeOverride, fullHeight = false }: Props) {
+export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closedReason = null, transparent = false, themeOverride, fullHeight = false, turnstileSiteKey = null }: Props) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const summaryRef = React.useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
@@ -73,6 +77,30 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   const [restored, setRestored] = React.useState(false);
   const [busyUploads, setBusyUploads] = React.useState<Set<string>>(new Set());
   const [honeypot, setHoneypot] = React.useState("");
+  // Bot check: the latest token, and a waiter for a submit that comes before the first token.
+  const botCheck = Boolean(turnstileSiteKey) && mode !== "preview";
+  const turnstileToken = React.useRef<string | null>(null);
+  const tokenWaiter = React.useRef<((token: string) => void) | null>(null);
+  const [turnstileReset, setTurnstileReset] = React.useState(0);
+  const onTurnstileToken = React.useCallback((token: string | null) => {
+    turnstileToken.current = token;
+    if (token && tokenWaiter.current) {
+      tokenWaiter.current(token);
+      tokenWaiter.current = null;
+    }
+  }, []);
+  const waitForTurnstile = (ms: number) =>
+    new Promise<string | null>((resolve) => {
+      if (turnstileToken.current) return resolve(turnstileToken.current);
+      const timer = setTimeout(() => {
+        tokenWaiter.current = null;
+        resolve(null);
+      }, ms);
+      tokenWaiter.current = (token) => {
+        clearTimeout(timer);
+        resolve(token);
+      };
+    });
   const responseIdRef = React.useRef<string | null>(null);
   const [optionOrders, setOptionOrders] = React.useState<Record<string, string[]>>({});
 
@@ -217,11 +245,22 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
     }
 
     setStatus("sending");
+    let botToken: string | undefined;
+    if (botCheck) {
+      // Usually ready long before this; give an in-progress check a few seconds.
+      const token = await waitForTurnstile(8000);
+      if (!token) {
+        setSendError(SEND_ERRORS.bot_check);
+        setStatus("failed");
+        return;
+      }
+      botToken = token;
+    }
     try {
       const response = await fetch(`/api/f/${slug}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ responseId: responseId(), renderToken, answers, website: honeypot }),
+        body: JSON.stringify({ responseId: responseId(), renderToken, answers, website: honeypot, turnstileToken: botToken }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string; reason?: ClosedReason; fieldErrors?: Record<string, string> };
       if (response.ok) {
@@ -244,6 +283,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
         focusSummary();
         return;
       }
+      if (body.error === "bot_check") setTurnstileReset((count) => count + 1);
       setSendError(SEND_ERRORS[body.error ?? ""] ?? body.message ?? SEND_ERRORS.default);
       setStatus("failed");
     } catch {
@@ -262,6 +302,8 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
     setRestored(false);
     setSendError(null);
     setStatus("filling");
+    // The last token was spent on the response just sent.
+    setTurnstileReset((count) => count + 1);
   };
 
   const upload = React.useMemo(
@@ -382,29 +424,36 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                 </label>
               </div>
 
-              {sendError && (
-                <Alert tone="danger" title="Not sent yet" live>
-                  {sendError}
-                </Alert>
-              )}
+              {/* The bot check (invisible unless Cloudflare needs a click), any send error and the buttons stay together. */}
+              <div className="flex flex-col gap-4">
+                {botCheck && turnstileSiteKey && (
+                  <Turnstile siteKey={turnstileSiteKey} theme={themeAttribute?.endsWith("dark") ? "dark" : themeAttribute?.endsWith("light") ? "light" : "auto"} onToken={onTurnstileToken} resetKey={turnstileReset} />
+                )}
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                {currentIndex > 0 ? (
-                  <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(currentIndex - 1)}>
-                    Back
-                  </Button>
-                ) : (
-                  <span />
+                {sendError && (
+                  <Alert tone="danger" title="Not sent yet" live>
+                    {sendError}
+                  </Alert>
                 )}
-                {isLast ? (
-                  <Button type="submit" variant="primary" size="lg" loading={status === "sending"} className="w-full sm:w-auto">
-                    {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
-                  </Button>
-                ) : (
-                  <Button variant="primary" size="lg" onClick={next} className="w-full sm:w-auto">
-                    Next
-                  </Button>
-                )}
+
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {currentIndex > 0 ? (
+                    <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(currentIndex - 1)}>
+                      Back
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  {isLast ? (
+                    <Button type="submit" variant="primary" size="lg" loading={status === "sending"} className="w-full sm:w-auto">
+                      {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
+                    </Button>
+                  ) : (
+                    <Button variant="primary" size="lg" onClick={next} className="w-full sm:w-auto">
+                      Next
+                    </Button>
+                  )}
+                </div>
               </div>
             </form>
 
