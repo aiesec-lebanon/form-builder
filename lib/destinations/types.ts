@@ -75,6 +75,8 @@ export type DestinationSummary = {
   name: string;
   detail: string;
   link: string | null;
+  /** Schema and table for database destinations (for the per-question view SQL). */
+  table: { schema: string; name: string } | null;
   connectedVia: string | null;
   health: "working" | "failing" | "untested";
   lastSuccessAt: string | null;

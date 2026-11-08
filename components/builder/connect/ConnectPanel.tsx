@@ -6,6 +6,7 @@ import * as React from "react";
 
 import { Alert, Badge, Button, useToast } from "@/components/aiesec";
 import type { DestinationSummary, DestinationType } from "@/lib/destinations/types";
+import type { FormDocument } from "@/lib/forms/schema";
 
 import { Sheet } from "../Sheet";
 import { DestinationCard } from "./DestinationCard";
@@ -19,6 +20,7 @@ type Props = {
   googleConfigured: boolean;
   googleAccounts: GoogleAccount[];
   hasFileQuestions: boolean;
+  doc?: FormDocument;
 };
 
 const RESPONSE_TYPES: DestinationType[] = ["google_sheets", "webhook", "supabase", "postgres"];
@@ -63,7 +65,7 @@ function Chooser({ onChoose, googleConfigured }: { onChoose: (type: DestinationT
   );
 }
 
-export function ConnectPanel({ formId, destinations, onDestinations, googleConfigured, googleAccounts, hasFileQuestions }: Props) {
+export function ConnectPanel({ formId, destinations, onDestinations, googleConfigured, googleAccounts, hasFileQuestions, doc }: Props) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -115,7 +117,7 @@ export function ConnectPanel({ formId, destinations, onDestinations, googleConfi
         ) : (
           <div className="flex flex-col gap-3">
             {responseDestinations.map((destination) => (
-              <DestinationCard key={destination.id} formId={formId} destination={destination} isOnlyResponseDestination={responseDestinations.length === 1} onDestinations={onDestinations} />
+              <DestinationCard key={destination.id} formId={formId} destination={destination} isOnlyResponseDestination={responseDestinations.length === 1} onDestinations={onDestinations} doc={doc} />
             ))}
             {responseDestinations.length > 1 && (
               <p className="ae-caption text-text-muted">A response counts as sent when the primary destination accepts it. Others receive a copy right after.</p>

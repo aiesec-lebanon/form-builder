@@ -89,6 +89,11 @@ function detailFor(row: Destination): { detail: string; link: string | null } {
 
 export function summarize(row: Destination & { googleConnection: Pick<GoogleConnection, "email" | "status"> | null }): DestinationSummary {
   const { detail, link } = detailFor(row);
+  const config = (row.config ?? {}) as Record<string, unknown>;
+  const table =
+    (row.type === "supabase" || row.type === "postgres") && typeof config.table === "string"
+      ? { schema: typeof config.schema === "string" && config.schema ? config.schema : "public", name: config.table }
+      : null;
   const health = row.consecutiveFailures > 0 || row.googleConnection?.status === "revoked" ? "failing" : row.lastSuccessAt ? "working" : "untested";
   return {
     id: row.id,
@@ -97,6 +102,7 @@ export function summarize(row: Destination & { googleConnection: Pick<GoogleConn
     name: row.name,
     detail,
     link,
+    table,
     connectedVia: row.googleConnection?.email ?? null,
     health,
     lastSuccessAt: row.lastSuccessAt?.toISOString() ?? null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, CircleCheck, CircleDashed, ExternalLink, KeyRound, MoreHorizontal, Star, Trash2 } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, Columns3, ExternalLink, KeyRound, MoreHorizontal, Star, Trash2 } from "lucide-react";
 import * as React from "react";
 
 import { Badge, Button, Modal, useToast } from "@/components/aiesec";
@@ -8,7 +8,9 @@ import { makePrimary, removeDestination, revealWebhookSecret, testDestinationAct
 import { CopyBlock } from "@/components/app/CopyBlock";
 import { Menu, type MenuItem } from "@/components/app/Menu";
 import { RelativeTime } from "@/components/app/RelativeTime";
+import { columnsViewSql } from "@/lib/destinations/sql";
 import type { DestinationSummary } from "@/lib/destinations/types";
+import type { FormDocument } from "@/lib/forms/schema";
 
 import { DESTINATION_META, WEBHOOK_VERIFY_SNIPPET } from "./shared";
 
@@ -17,6 +19,8 @@ type Props = {
   destination: DestinationSummary;
   isOnlyResponseDestination: boolean;
   onDestinations: (destinations: DestinationSummary[]) => void;
+  /** The form's questions, for the per-question view SQL. */
+  doc?: FormDocument;
 };
 
 function Health({ destination }: { destination: DestinationSummary }) {
@@ -49,12 +53,13 @@ function Health({ destination }: { destination: DestinationSummary }) {
   );
 }
 
-export function DestinationCard({ formId, destination, isOnlyResponseDestination, onDestinations }: Props) {
+export function DestinationCard({ formId, destination, isOnlyResponseDestination, onDestinations, doc }: Props) {
   const toast = useToast();
   const [testing, startTest] = React.useTransition();
   const [busy, startBusy] = React.useTransition();
   const [confirming, setConfirming] = React.useState(false);
   const [secret, setSecret] = React.useState<string | null>(null);
+  const [viewOpen, setViewOpen] = React.useState(false);
   const meta = DESTINATION_META[destination.type];
   const Icon = meta.icon;
   const isFiles = destination.role === "files";
@@ -105,6 +110,7 @@ export function DestinationCard({ formId, destination, isOnlyResponseDestination
           },
         ]
       : []),
+    ...(destination.table && doc ? [{ label: "One column per question (SQL)", icon: <Columns3 size={16} />, onSelect: () => setViewOpen(true) }] : []),
     { kind: "separator" },
     { label: "Remove", icon: <Trash2 size={16} />, tone: "danger", onSelect: () => setConfirming(true) },
   ];
@@ -160,6 +166,18 @@ export function DestinationCard({ formId, destination, isOnlyResponseDestination
           {destination.type === "google_sheets" && "The Sheet itself stays in your Google Drive."}
         </p>
       </Modal>
+
+      {destination.table && doc && (
+        <Modal open={viewOpen} onClose={() => setViewOpen(false)} title="One column per question" size="lg">
+          <div className="flex flex-col gap-4">
+            <p className="ae-body-sm text-text-muted">
+              Responses arrive in one row each, with every answer inside the data column. Run this in your database to get a view with one column per question, ready for
+              spreadsheets and dashboards. Run it again after you change the questions.
+            </p>
+            <CopyBlock label="View SQL" value={columnsViewSql({ doc, formId, schema: destination.table.schema, table: destination.table.name })} />
+          </div>
+        </Modal>
+      )}
 
       <Modal open={secret !== null} onClose={() => setSecret(null)} title="Webhook signing secret" size="lg">
         <div className="flex flex-col gap-4">

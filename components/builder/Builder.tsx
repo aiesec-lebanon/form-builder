@@ -335,7 +335,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         )}
         {tab === "connect" && (
           <main id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" className={panelClass}>
-            <ConnectPanel formId={form.id} destinations={destinations} onDestinations={setDestinations} googleConfigured={googleConfigured} googleAccounts={googleAccounts} hasFileQuestions={hasFileQuestions} />
+            <ConnectPanel formId={form.id} destinations={destinations} onDestinations={setDestinations} googleConfigured={googleConfigured} googleAccounts={googleAccounts} hasFileQuestions={hasFileQuestions} doc={state.doc} />
           </main>
         )}
         {tab === "settings" && (
