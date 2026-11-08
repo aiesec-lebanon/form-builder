@@ -163,18 +163,22 @@ export async function cleanOrphanedUploads(now = Date.now()): Promise<OrphanClea
     result.folders += 1;
     try {
       const token = await googleAccessToken(folder.googleConnectionId);
-      let pageToken: string | undefined;
+      // Uploads go into one subfolder per file question; older forms used the form's folder.
+      const places = [...new Set([config.data.folderId, ...Object.values(config.data.questionFolders)])];
       let trashed = 0;
-      do {
-        const page = await listFolderFiles(token, config.data.folderId, pageToken);
-        const orphans = page.files.filter((file) => file.appProperties?.aiesecForms === "1" && file.appProperties?.submitted !== "1" && Date.parse(file.createdTime) < cutoff);
-        for (const file of orphans) {
-          if (trashed >= MAX_TRASHED_PER_FOLDER) break;
-          await trashFile(token, file.id);
-          trashed += 1;
-        }
-        pageToken = trashed < MAX_TRASHED_PER_FOLDER ? page.nextPageToken : undefined;
-      } while (pageToken);
+      for (const place of places) {
+        let pageToken: string | undefined;
+        do {
+          const page = await listFolderFiles(token, place, pageToken);
+          const orphans = page.files.filter((file) => file.appProperties?.aiesecForms === "1" && file.appProperties?.submitted !== "1" && Date.parse(file.createdTime) < cutoff);
+          for (const file of orphans) {
+            if (trashed >= MAX_TRASHED_PER_FOLDER) break;
+            await trashFile(token, file.id);
+            trashed += 1;
+          }
+          pageToken = trashed < MAX_TRASHED_PER_FOLDER ? page.nextPageToken : undefined;
+        } while (pageToken);
+      }
       result.trashed += trashed;
     } catch (error) {
       result.failedFolders += 1;

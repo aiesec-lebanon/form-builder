@@ -19,7 +19,7 @@ import { newSigningSecret } from "@/lib/destinations/webhook";
 import { googleConfigured } from "@/lib/env";
 import { getFormAccess } from "@/lib/forms/access";
 import { parseDocument } from "@/lib/forms/schema";
-import { addSheetTab, createSpreadsheet, formatSheet, getSpreadsheet, moveToFolder, uniqueTabTitle, writeHeaderRow } from "@/lib/google/api";
+import { addSheetTab, createSpreadsheet, formatSheet, getSpreadsheet, uniqueTabTitle, writeHeaderRow } from "@/lib/google/api";
 import { ensureFormFolder, folderNotice } from "@/lib/google/folders";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
@@ -234,8 +234,7 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
     // AIESEC Forms / <form name> / <form name> Responses
     const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: formName });
     const headers = initialHeaderRow(doc);
-    const sheet = await createSpreadsheet(token, `${formName} Responses`, headers);
-    await moveToFolder(token, sheet.spreadsheetId, folder.id);
+    const sheet = await createSpreadsheet(token, { title: `${formName} Responses`, headers, folderId: folder.id });
     await formatSheet(token, sheet.spreadsheetId, sheet.sheetId, headers).catch((error) => logger.warn("destination.sheet_format_failed", { formId, error }));
     const config = { ...sheet, formFolderId: folder.id, columns: syncColumns([], doc).columns };
     const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_sheets", name: "Google Sheets", config, googleConnectionId: connection.id });

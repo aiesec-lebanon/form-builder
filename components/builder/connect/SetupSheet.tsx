@@ -56,7 +56,14 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
       const moved = await setGoogleFolderLocation(account, picked.id);
       if (!moved.ok) return setError(moved.error);
       setRootFolders((current) => ({ ...current, [account]: moved.data.rootFolderId }));
-      toast.show({ title: `AIESEC Forms is now in “${moved.data.parentName}”` });
+      toast.show(
+        moved.data.moved
+          ? { title: `AIESEC Forms is now in “${moved.data.parentName}”` }
+          : {
+              title: `New forms will be saved in “${moved.data.parentName}”`,
+              description: "Your existing forms' files stay where they are: moving a folder into a shared drive needs the Manager role there.",
+            },
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google's file chooser didn't open. Try again.");
     } finally {
@@ -235,6 +242,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
                   {rootFolder ? "Move it" : "Choose another place"}
                 </button>
               )}
+              {googlePicker && <span className="mt-1 block">Put it in your entity&apos;s shared drive so the files stay with the entity after handovers.</span>}
             </p>
           )}
 

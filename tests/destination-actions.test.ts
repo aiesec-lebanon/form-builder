@@ -174,8 +174,9 @@ describe("Google destinations", () => {
     m.createSpreadsheet.mockResolvedValueOnce({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheetId: 0, sheetTitle: "Responses" });
     m.formatSheet.mockRejectedValueOnce(new Error("cosmetic"));
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: true, data: { notice: null } });
-    expect(m.createSpreadsheet.mock.calls[0][1]).toBe("Recruitment Responses");
-    expect(m.moveToFolder).toHaveBeenCalledWith("tok", "s1", "form-folder-1");
+    // Created straight in the form's folder (works in shared drives too), never moved.
+    expect(m.createSpreadsheet.mock.calls[0][1]).toEqual({ title: "Recruitment Responses", headers: expect.arrayContaining(["Submitted at"]), folderId: "form-folder-1" });
+    expect(m.moveToFolder).not.toHaveBeenCalled();
     expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({ type: "google_sheets", googleConnectionId: "c1", config: { spreadsheetId: "s1", formFolderId: "form-folder-1", columns: expect.any(Array) } });
     m.ensureFormFolder.mockResolvedValueOnce({ id: "form-folder-2", url: "https://drive/f2", name: "Recruitment (2)", takenName: "Recruitment" });
     m.createSpreadsheet.mockResolvedValueOnce({ spreadsheetId: "s2", spreadsheetUrl: "https://docs/s2", sheetId: 0, sheetTitle: "Responses" });

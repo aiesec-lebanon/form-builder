@@ -1,7 +1,8 @@
 "use client";
 
 // Google Picker (ADR-016): the owner chooses a Sheet or folder in Google's own
-// chooser; with drive.file, whatever they pick becomes accessible to us.
+// chooser, from My Drive or a shared drive; with drive.file, whatever they pick
+// becomes accessible to us.
 
 type PickerDoc = { id: string; name: string };
 type PickerResponse = { action: string; docs?: PickerDoc[] };
@@ -11,6 +12,10 @@ interface DocsView {
   setSelectFolderEnabled(value: boolean): DocsView;
   setMimeTypes(mimeTypes: string): DocsView;
   setMode(mode: unknown): DocsView;
+  /** Shows shared drives and their files. */
+  setEnableDrives(value: boolean): DocsView;
+  /** Tab name in the chooser (newer Picker versions). */
+  setLabel?(label: string): DocsView;
 }
 
 interface Picker {
@@ -35,7 +40,6 @@ interface PickerApi {
   DocsView: new (viewId?: unknown) => DocsView;
   ViewId: { FOLDERS: unknown; SPREADSHEETS: unknown };
   DocsViewMode: { LIST: unknown };
-  Feature: { NAV_HIDDEN: unknown };
   Action: { PICKED: string; CANCEL: string };
 }
 
@@ -79,11 +83,15 @@ function loadPicker(): Promise<PickerApi> {
 export async function pickFromDrive(session: PickerSession, kind: "folder" | "spreadsheet"): Promise<PickedFile | null> {
   const api = await loadPicker();
   return new Promise((resolve) => {
-    const view =
-      kind === "folder" ? new api.DocsView(api.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER_MIME) : new api.DocsView(api.ViewId.SPREADSHEETS).setMode(api.DocsViewMode.LIST);
+    // Two tabs: the person's own Drive, and the shared drives they belong to.
+    const view = (sharedDrives: boolean) => {
+      const base = kind === "folder" ? new api.DocsView(api.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER_MIME) : new api.DocsView(api.ViewId.SPREADSHEETS).setMode(api.DocsViewMode.LIST);
+      const scoped = sharedDrives ? base.setEnableDrives(true) : base;
+      return scoped.setLabel?.(sharedDrives ? "Shared drives" : "My Drive") ?? scoped;
+    };
     const picker = new api.PickerBuilder()
-      .addView(view)
-      .enableFeature(api.Feature.NAV_HIDDEN)
+      .addView(view(false))
+      .addView(view(true))
       .setOAuthToken(session.token)
       .setDeveloperKey(session.apiKey)
       .setAppId(session.appId)

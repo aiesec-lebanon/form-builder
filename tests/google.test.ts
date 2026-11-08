@@ -154,6 +154,9 @@ describe("Drive folders and Sheet formatting", () => {
     const fetchMock = stubFetch(json({ files: [{ id: "f1" }] }), json({ files: [] }), json({ id: "new", webViewLink: "https://drive/new" }), json({ id: "s1", parents: ["root-id"] }), json({ id: "s1" }), json({ id: "s2", parents: ["dest"] }), json({ id: "s2" }));
     expect(await findFolder("tok", "Lina's form", "root")).toEqual({ id: "f1" });
     expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("q")).toBe("name = 'Lina\\'s form' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false");
+    // Searches include shared drives.
+    const search = new URL(fetchMock.mock.calls[0][0]).searchParams;
+    expect([search.get("supportsAllDrives"), search.get("includeItemsFromAllDrives"), search.get("corpora")]).toEqual(["true", "true", "allDrives"]);
     expect(await findFolder("tok", "Missing", "root")).toBeNull();
     await createFolderCall();
     async function createFolderCall() {
@@ -165,6 +168,7 @@ describe("Drive folders and Sheet formatting", () => {
     const move = new URL(fetchMock.mock.calls[4][0]);
     expect(move.searchParams.get("addParents")).toBe("dest");
     expect(move.searchParams.get("removeParents")).toBe("root-id");
+    expect(move.searchParams.get("supportsAllDrives")).toBe("true");
     await moveToFolder("tok", "s2", "dest");
     expect(new URL(fetchMock.mock.calls[6][0]).searchParams.has("removeParents")).toBe(false);
     expect(driveLiteral("a\\b")).toBe("'a\\\\b'");
@@ -199,13 +203,21 @@ describe("Sheets and Drive client", () => {
     expect(a1("Lina's tab", "A1")).toBe("'Lina''s tab'!A1");
   });
 
-  it("creates a spreadsheet with a bold header row", async () => {
-    const fetchMock = stubFetch(json({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheets: [{ properties: { sheetId: 7, title: "Responses" } }] }));
-    expect(await createSpreadsheet("tok", "Form", ["Submitted at", "Name"])).toEqual({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheetId: 7, sheetTitle: "Responses" });
+  it("creates a spreadsheet straight inside a folder, shared drives included", async () => {
+    const fetchMock = stubFetch(
+      json({ id: "s1" }),
+      json({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", properties: { title: "Form" }, sheets: [{ properties: { sheetId: 7, title: "Sheet1" } }] }),
+      json({}),
+      json({}),
+    );
+    expect(await createSpreadsheet("tok", { title: "Form", headers: ["Submitted at", "Name"], folderId: "folder-1" })).toEqual({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheetId: 7, sheetTitle: "Responses" });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://sheets.googleapis.com/v4/spreadsheets");
+    expect(new URL(url).searchParams.get("supportsAllDrives")).toBe("true");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
-    expect(JSON.parse(String(init.body)).sheets[0].data[0].rowData[0].values[1].userEnteredValue.stringValue).toBe("Name");
+    expect(JSON.parse(String(init.body))).toEqual({ name: "Form", mimeType: "application/vnd.google-apps.spreadsheet", parents: ["folder-1"] });
+    expect(JSON.parse(String(fetchMock.mock.calls[2][1].body)).requests[0].updateSheetProperties.properties).toEqual({ sheetId: 7, title: "Responses", gridProperties: { frozenRowCount: 1 } });
+    expect(fetchMock.mock.calls[3][0]).toContain("/values/");
+    expect(JSON.parse(String(fetchMock.mock.calls[3][1].body))).toEqual({ values: [["Submitted at", "Name"]] });
   });
 
   it("writes headers and appends rows as raw values", async () => {

@@ -48,7 +48,7 @@ export async function googlePickerSession(connectionId: string): Promise<ActionR
 }
 
 /** Moves (or makes) the account's AIESEC Forms folder inside a folder the owner picked. */
-export async function setGoogleFolderLocation(connectionId: string, folderId: string): Promise<ActionResult<{ rootFolderId: string; parentName: string }>> {
+export async function setGoogleFolderLocation(connectionId: string, folderId: string): Promise<ActionResult<{ rootFolderId: string; parentName: string; moved: boolean; sharedDrive: boolean }>> {
   const user = await getCurrentUser();
   if (!user) return fail(SIGNED_OUT);
   if (!DRIVE_ID.test(folderId)) return fail("Choose the folder again.");
@@ -59,7 +59,7 @@ export async function setGoogleFolderLocation(connectionId: string, folderId: st
     const placed = await placeRootFolder(token, connection.id, folderId);
     if (!placed.ok) return fail(placed.message);
     await recordAudit({ type: "google.folder_moved", actorId: user.id, target: { type: "google_connection", id: connection.id } });
-    return ok({ rootFolderId: placed.rootId, parentName: placed.parentName });
+    return ok({ rootFolderId: placed.rootId, parentName: placed.parentName, moved: placed.moved, sharedDrive: placed.sharedDrive });
   } catch (error) {
     logger.warn("google.folder_move_failed", { connectionId, error });
     return fail(googleProblem(error, "Couldn't move the folder. Try again."));

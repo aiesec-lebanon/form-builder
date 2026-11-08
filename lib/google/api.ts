@@ -1,10 +1,16 @@
 import "server-only";
 
 // Minimal Google Sheets + Drive REST client (no SDK: smaller, explicit).
+// Drive calls include shared drives: folders and Sheets can live in an entity's
+// shared drive as well as in someone's My Drive (drive.file covers both).
 
 const SHEETS = "https://sheets.googleapis.com/v4/spreadsheets";
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+/** Single-file Drive calls: also find files that live in shared drives. */
+const ALL_DRIVES = "supportsAllDrives=true";
+/** Drive searches: look in My Drive and the shared drives the account belongs to. */
+const SEARCH_ALL_DRIVES = { supportsAllDrives: "true", includeItemsFromAllDrives: "true", corpora: "allDrives" };
 
 export class GoogleApiError extends Error {
   constructor(
@@ -42,27 +48,26 @@ export function a1(sheetTitle: string, range: string): string {
 
 export type CreatedSpreadsheet = { spreadsheetId: string; spreadsheetUrl: string; sheetId: number; sheetTitle: string };
 
-export async function createSpreadsheet(token: string, title: string, headers: string[]): Promise<CreatedSpreadsheet> {
-  const body = {
-    properties: { title },
-    sheets: [
-      {
-        properties: { title: "Responses", gridProperties: { frozenRowCount: 1 } },
-        data: [
-          {
-            startRow: 0,
-            startColumn: 0,
-            rowData: [{ values: headers.map((header) => ({ userEnteredValue: { stringValue: header }, userEnteredFormat: { textFormat: { bold: true } } })) }],
-          },
-        ],
-      },
-    ],
-  };
-  const created = await call<{ spreadsheetId: string; spreadsheetUrl: string; sheets: Array<{ properties: { sheetId: number; title: string } }> }>(token, SHEETS, {
+export const SPREADSHEET_MIME = "application/vnd.google-apps.spreadsheet";
+
+/**
+ * A new spreadsheet created straight inside a folder (in My Drive or a shared
+ * drive), so it never has to be moved: moving into a shared drive can need more
+ * rights than adding. Its first tab becomes "Responses" with the header row.
+ */
+export async function createSpreadsheet(token: string, input: { title: string; headers: string[]; folderId: string }): Promise<CreatedSpreadsheet> {
+  const file = await call<{ id: string }>(token, `${DRIVE}?${ALL_DRIVES}&fields=id`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ name: input.title, mimeType: SPREADSHEET_MIME, parents: [input.folderId] }),
   });
-  return { spreadsheetId: created.spreadsheetId, spreadsheetUrl: created.spreadsheetUrl, sheetId: created.sheets[0].properties.sheetId, sheetTitle: created.sheets[0].properties.title };
+  const info = await getSpreadsheet(token, file.id);
+  const sheetId = info.sheets[0]?.sheetId ?? 0;
+  await call(token, `${SHEETS}/${encodeURIComponent(file.id)}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId, title: "Responses", gridProperties: { frozenRowCount: 1 } }, fields: "title,gridProperties.frozenRowCount" } }] }),
+  });
+  await writeHeaderRow(token, file.id, "Responses", input.headers);
+  return { spreadsheetId: file.id, spreadsheetUrl: info.spreadsheetUrl, sheetId, sheetTitle: "Responses" };
 }
 
 export async function writeHeaderRow(token: string, spreadsheetId: string, sheetTitle: string, headers: string[]): Promise<void> {
@@ -122,18 +127,19 @@ export async function sheetTitleById(token: string, spreadsheetId: string, sheet
 export const FOLDER_MIME = "application/vnd.google-apps.folder";
 
 export async function createFolder(token: string, name: string, parentId?: string): Promise<{ id: string; webViewLink: string }> {
-  return call(token, `${DRIVE}?fields=id,webViewLink`, { method: "POST", body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }) });
+  return call(token, `${DRIVE}?${ALL_DRIVES}&fields=id,webViewLink`, { method: "POST", body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }) });
 }
 
 /** Drive query string literal: quotes and backslashes escaped. */
 export const driveLiteral = (value: string) => `'${value.replace(/['\\]/g, "\\$&")}'`;
 
-/** A folder this app created with this exact name in a parent ("root" = My Drive), or null. */
+/** A folder this app created with this exact name in a parent ("root" = My Drive; shared-drive folders work too), or null. */
 export async function findFolder(token: string, name: string, parentId: string): Promise<{ id: string; webViewLink?: string } | null> {
   const params = new URLSearchParams({
     q: `name = ${driveLiteral(name)} and mimeType = '${FOLDER_MIME}' and ${driveLiteral(parentId)} in parents and trashed = false`,
     fields: "files(id,webViewLink)",
     pageSize: "1",
+    ...SEARCH_ALL_DRIVES,
   });
   const result = await call<{ files?: Array<{ id: string; webViewLink?: string }> }>(token, `${DRIVE}?${params.toString()}`);
   return result.files?.[0] ?? null;
@@ -142,7 +148,7 @@ export async function findFolder(token: string, name: string, parentId: string):
 /** Moves a file this app created into a folder. */
 export async function moveToFolder(token: string, fileId: string, folderId: string): Promise<void> {
   const file = await getFile(token, fileId);
-  const params = new URLSearchParams({ addParents: folderId, fields: "id" });
+  const params = new URLSearchParams({ addParents: folderId, fields: "id", supportsAllDrives: "true" });
   const others = (file.parents ?? []).filter((parent) => parent !== folderId);
   if (others.length) params.set("removeParents", others.join(","));
   await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${params.toString()}`, { method: "PATCH", body: JSON.stringify({}) });
@@ -176,15 +182,17 @@ export type DriveFile = {
   webViewLink?: string;
   appProperties?: Record<string, string>;
   trashed?: boolean;
+  /** Set when the file lives in a shared drive. */
+  driveId?: string;
 };
 
 export async function getFile(token: string, fileId: string): Promise<DriveFile> {
-  return call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id,name,size,mimeType,parents,webViewLink,appProperties,trashed`);
+  return call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id,name,size,mimeType,parents,webViewLink,appProperties,trashed,driveId`);
 }
 
 /** Renames a file and/or sets its app properties in one call. */
 export async function updateFile(token: string, fileId: string, patch: { name?: string; appProperties?: Record<string, string> }): Promise<void> {
-  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id`, { method: "PATCH", body: JSON.stringify(patch) });
+  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /**
@@ -195,7 +203,7 @@ export async function startResumableUpload(
   token: string,
   input: { folderId: string; name: string; mimeType: string; size: number; origin: string; appProperties: Record<string, string> },
 ): Promise<string> {
-  const response = await fetch(`${UPLOAD}?uploadType=resumable&fields=id,name,size,mimeType`, {
+  const response = await fetch(`${UPLOAD}?uploadType=resumable&${ALL_DRIVES}&fields=id,name,size,mimeType`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -225,12 +233,13 @@ export async function listFolderFiles(token: string, folderId: string, pageToken
     fields: "nextPageToken,files(id,createdTime,appProperties)",
     pageSize: "200",
     orderBy: "createdTime",
+    ...SEARCH_ALL_DRIVES,
   });
   if (pageToken) params.set("pageToken", pageToken);
   return call(token, `${DRIVE}?${params.toString()}`);
 }
 
-/** Moves a file to the owner's Drive trash (restorable for 30 days). */
+/** Moves a file to the trash (restorable for 30 days). In a shared drive this needs the Content manager role. */
 export async function trashFile(token: string, fileId: string): Promise<void> {
-  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id`, { method: "PATCH", body: JSON.stringify({ trashed: true }) });
+  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id`, { method: "PATCH", body: JSON.stringify({ trashed: true }) });
 }

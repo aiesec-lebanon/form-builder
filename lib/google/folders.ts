@@ -4,12 +4,13 @@ import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
 
-import { createFolder, findFolder, FOLDER_MIME, getFile, moveToFolder } from "./api";
+import { createFolder, findFolder, FOLDER_MIME, getFile, GoogleApiError, moveToFolder } from "./api";
 
 // Where this app puts things in an owner's Drive:
 //   AIESEC Forms / <form name> / <form name> Responses   (the Sheet)
 //                              / <form name> <question> Uploads   (one per file question)
-// Folders are tracked by id, so owners can move or rename them freely.
+// Folders are tracked by id, so owners can move or rename them freely. The whole
+// tree can live in a shared drive, so files stay with the entity after handovers.
 
 export const ROOT_FOLDER_NAME = "AIESEC Forms";
 const MAX_NAME = 150;
@@ -35,29 +36,42 @@ export async function ensureRootFolder(token: string, connectionId: string): Pro
   return id;
 }
 
+export type PlacedRoot = {
+  ok: true;
+  rootId: string;
+  parentName: string;
+  /** The existing AIESEC Forms folder (with every form's files) moved there. False: a new one was made there instead. */
+  moved: boolean;
+  sharedDrive: boolean;
+};
+
 /**
- * Puts AIESEC Forms inside a folder the owner picked in Google Picker. An
- * existing AIESEC Forms folder moves there, so every form's files stay together.
+ * Puts AIESEC Forms inside a folder the owner picked in Google Picker, in My
+ * Drive or a shared drive. The existing folder moves there so every form's files
+ * stay together. Moving a folder into a shared drive needs the Manager role
+ * there; without it, a new AIESEC Forms folder is made there for new forms.
  */
-export async function placeRootFolder(
-  token: string,
-  connectionId: string,
-  parentId: string,
-): Promise<{ ok: true; rootId: string; parentName: string } | { ok: false; message: string }> {
+export async function placeRootFolder(token: string, connectionId: string, parentId: string): Promise<PlacedRoot | { ok: false; message: string }> {
   const parent = await getFile(token, parentId);
   if (parent.mimeType !== FOLDER_MIME || parent.trashed) return { ok: false, message: "Choose a folder, not a file." };
   const connection = await db.googleConnection.findUnique({ where: { id: connectionId }, select: { rootFolderId: true } });
   const current = connection?.rootFolderId && (await usable(token, connection.rootFolderId)) ? connection.rootFolderId : null;
   if (current === parentId) return { ok: false, message: `That's the ${ROOT_FOLDER_NAME} folder itself. Choose the folder to put it in.` };
-  let rootId: string;
+  let rootId: string | null = null;
+  let moved = false;
   if (current) {
-    await moveToFolder(token, current, parentId);
-    rootId = current;
-  } else {
-    rootId = (await findFolder(token, ROOT_FOLDER_NAME, parentId))?.id ?? (await createFolder(token, ROOT_FOLDER_NAME, parentId)).id;
+    try {
+      await moveToFolder(token, current, parentId);
+      rootId = current;
+      moved = true;
+    } catch (error) {
+      // Only a permission problem falls back; anything else is a real failure.
+      if (!(error instanceof GoogleApiError) || (error.status !== 403 && error.status !== 400)) throw error;
+    }
   }
+  rootId ??= (await findFolder(token, ROOT_FOLDER_NAME, parentId))?.id ?? (await createFolder(token, ROOT_FOLDER_NAME, parentId)).id;
   await db.googleConnection.update({ where: { id: connectionId }, data: { rootFolderId: rootId } });
-  return { ok: true, rootId, parentName: parent.name };
+  return { ok: true, rootId, parentName: parent.name, moved: moved || !current, sharedDrive: Boolean(parent.driveId) };
 }
 
 export type FormFolder = { id: string; url: string; name: string; /** The form's name when another folder already had it. */ takenName: string | null };

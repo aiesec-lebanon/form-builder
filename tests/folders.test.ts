@@ -10,7 +10,7 @@ const m = vi.hoisted(() => ({
     destination: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   },
 }));
-vi.mock("@/lib/google/api", () => ({ getFile: m.getFile, findFolder: m.findFolder, createFolder: m.createFolder, moveToFolder: m.moveToFolder, FOLDER_MIME: "application/vnd.google-apps.folder" }));
+vi.mock("@/lib/google/api", async (original) => ({ GoogleApiError: (await original<typeof import("@/lib/google/api")>()).GoogleApiError, getFile: m.getFile, findFolder: m.findFolder, createFolder: m.createFolder, moveToFolder: m.moveToFolder, FOLDER_MIME: "application/vnd.google-apps.folder" }));
 vi.mock("@/lib/db", () => ({ db: m.db }));
 
 const { ensureFormFolder, ensureQuestionFolder, ensureRootFolder, folderNotice, placeRootFolder, ROOT_FOLDER_NAME } = await import("@/lib/google/folders");
@@ -100,9 +100,26 @@ describe("choosing where AIESEC Forms goes", () => {
   it("moves the existing folder into the picked one", async () => {
     m.getFile.mockResolvedValueOnce({ id: "lc-folder", name: "LC Beirut", mimeType: FOLDER, trashed: false }).mockResolvedValueOnce({ id: "root-1", trashed: false });
     m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-1" });
-    expect(await placeRootFolder("tok", "c1", "lc-folder")).toEqual({ ok: true, rootId: "root-1", parentName: "LC Beirut" });
+    expect(await placeRootFolder("tok", "c1", "lc-folder")).toEqual({ ok: true, rootId: "root-1", parentName: "LC Beirut", moved: true, sharedDrive: false });
     expect(m.moveToFolder).toHaveBeenCalledWith("tok", "root-1", "lc-folder");
     expect(m.db.googleConnection.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { rootFolderId: "root-1" } });
+  });
+
+  it("starts a new AIESEC Forms folder in a shared drive when the old one can't be moved there", async () => {
+    const { GoogleApiError } = await import("@/lib/google/api");
+    m.getFile.mockResolvedValueOnce({ id: "drive-folder", name: "AIESEC in Beirut", mimeType: FOLDER, driveId: "shared-1" }).mockResolvedValueOnce({ id: "root-1", trashed: false });
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-1" });
+    m.moveToFolder.mockRejectedValueOnce(new GoogleApiError(403, "teamDrivesFolderMoveInNotSupported", "Moving folders into shared drives isn't allowed"));
+    m.findFolder.mockResolvedValueOnce(null);
+    m.createFolder.mockResolvedValueOnce({ id: "root-shared", webViewLink: "https://drive/root-shared" });
+    expect(await placeRootFolder("tok", "c1", "drive-folder")).toEqual({ ok: true, rootId: "root-shared", parentName: "AIESEC in Beirut", moved: false, sharedDrive: true });
+    expect(m.createFolder).toHaveBeenCalledWith("tok", ROOT_FOLDER_NAME, "drive-folder");
+    expect(m.db.googleConnection.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { rootFolderId: "root-shared" } });
+    // Other failures still surface.
+    m.getFile.mockResolvedValueOnce({ id: "drive-folder", name: "AIESEC in Beirut", mimeType: FOLDER }).mockResolvedValueOnce({ id: "root-1", trashed: false });
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-1" });
+    m.moveToFolder.mockRejectedValueOnce(new GoogleApiError(500, "backendError", "Try again"));
+    await expect(placeRootFolder("tok", "c1", "drive-folder")).rejects.toMatchObject({ status: 500 });
   });
 
   it("finds or makes it inside the picked folder when there's none yet", async () => {

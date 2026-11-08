@@ -66,8 +66,8 @@ describe("Google Picker session", () => {
 
 describe("AIESEC Forms location", () => {
   it("moves the folder into the picked one and records it", async () => {
-    m.placeRootFolder.mockResolvedValueOnce({ ok: true, rootId: "root-1", parentName: "LC Beirut" });
-    expect(await setGoogleFolderLocation("c1", FOLDER)).toEqual({ ok: true, data: { rootFolderId: "root-1", parentName: "LC Beirut" } });
+    m.placeRootFolder.mockResolvedValueOnce({ ok: true, rootId: "root-1", parentName: "LC Beirut", moved: false, sharedDrive: true });
+    expect(await setGoogleFolderLocation("c1", FOLDER)).toEqual({ ok: true, data: { rootFolderId: "root-1", parentName: "LC Beirut", moved: false, sharedDrive: true } });
     expect(m.placeRootFolder).toHaveBeenCalledWith("tok", "c1", FOLDER);
     expect(m.recordAudit).toHaveBeenCalledWith(expect.objectContaining({ type: "google.folder_moved", actorId: "u1" }));
   });

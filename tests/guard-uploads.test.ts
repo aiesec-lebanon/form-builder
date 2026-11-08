@@ -189,6 +189,16 @@ describe("abandoned uploads", () => {
     expect(await cleanOrphanedUploads(now)).toEqual({ folders: 2, trashed: 2, failedFolders: 1 });
     expect(google.trashFile.mock.calls.map((call) => call[1])).toEqual(["old-orphan", "old-orphan-2"]);
   });
+
+  it("also looks in each question's uploads folder", async () => {
+    db.destination.findMany.mockResolvedValueOnce([{ id: "d1", formId: "form-1", googleConnectionId: "c1", config: { ...drive.config, questionFolders: { f_cv: "cv-folder", f_photo: "photo-folder" } } }]);
+    google.googleAccessToken.mockResolvedValue("tok");
+    google.listFolderFiles.mockResolvedValueOnce({ files: [] }).mockResolvedValueOnce({ files: [file("cv-orphan", 9, { aiesecForms: "1" })] }).mockResolvedValueOnce({ files: [] });
+    google.trashFile.mockResolvedValue(undefined);
+    expect(await cleanOrphanedUploads(now)).toEqual({ folders: 1, trashed: 1, failedFolders: 0 });
+    expect(google.listFolderFiles.mock.calls.map((call) => call[1])).toEqual(["folder-0001", "cv-folder", "photo-folder"]);
+    expect(google.trashFile).toHaveBeenCalledWith("tok", "cv-orphan");
+  });
 });
 
 describe("upload naming", () => {
