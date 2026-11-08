@@ -3,6 +3,8 @@
 import { X } from "lucide-react";
 import * as React from "react";
 
+import { scopeDialogTheme } from "@/components/app/dialog-theme";
+
 import { cx } from "@/components/aiesec";
 
 // A bottom sheet on phones and a centred dialog from 1024px, on the native
@@ -27,6 +29,7 @@ export function Sheet({ open, onClose, title, children, footer, width = 560, cla
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) {
+      scopeDialogTheme(dialog);
       dialog.showModal();
       dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     }

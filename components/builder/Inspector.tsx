@@ -8,6 +8,7 @@ import { FILE_KIND_LABEL } from "@/lib/forms/fields/other";
 import { newId } from "@/lib/forms/ids";
 import { FILE_KINDS, LIMITS, isChoiceField, type ChoiceField, type Field, type FileKind, type FormDocument, type Option } from "@/lib/forms/schema";
 
+import { EntityImport } from "./EntityImport";
 import { FIELD_ICONS } from "./fieldIcons";
 import { LogicEditor } from "./LogicEditor";
 
@@ -116,6 +117,12 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
               <NumberSetting label="Min selections" value={field.minSelected} min={1} max={LIMITS.options} onChange={(minSelected) => onChange({ minSelected })} />
               <NumberSetting label="Max selections" value={field.maxSelected} min={1} max={LIMITS.options} onChange={(maxSelected) => onChange({ maxSelected })} />
             </div>
+          )}
+          {isChoiceField(field) && (
+            <EntityImport
+              hasOptions={field.options.some((option) => option.label.trim())}
+              onNames={(names) => onChange({ options: names.slice(0, LIMITS.options).map((label) => ({ id: newId("o"), label })) })}
+            />
           )}
           {isChoiceField(field) && <OptionsAsText key={field.options.map((option) => option.id).join()} field={field} onChange={(options) => onChange({ options })} />}
         </>

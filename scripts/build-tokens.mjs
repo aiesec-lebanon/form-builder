@@ -107,12 +107,15 @@ for (const theme of themes) {
 const autoStyles = themes
   .filter((theme) => theme.endsWith("-light") && themes.includes(theme.replace(/-light$/, "-dark")))
   .map((theme) => theme.replace(/-light$/, ""));
+// "calm" is the default style following the OS, for scopes that need an explicit
+// value (e.g. a modal dialog, so overlays opened inside it render inside it).
+const autoThemes = [...autoStyles.map((style) => ({ name: style, light: `${style}-light`, dark: `${style}-dark` })), ...(themes.includes("light") && themes.includes("dark") ? [{ name: "calm", light: "light", dark: "dark" }] : [])];
 
-for (const style of autoStyles) {
+for (const auto of autoThemes) {
   lines.push("");
-  lines.push(`[data-theme="${style}"] {`);
+  lines.push(`[data-theme="${auto.name}"] {`);
   lines.push("  color-scheme: light;");
-  lines.push(declarations(themeDependent, `${style}-light`));
+  lines.push(declarations(themeDependent, auto.light));
   lines.push("}");
 }
 
@@ -123,10 +126,10 @@ if (themes.includes("dark")) {
   lines.push("    color-scheme: dark;");
   lines.push(declarations(themeDependent, "dark", "    "));
   lines.push("  }");
-  for (const style of autoStyles) {
-    lines.push(`  [data-theme="${style}"] {`);
+  for (const auto of autoThemes) {
+    lines.push(`  [data-theme="${auto.name}"] {`);
     lines.push("    color-scheme: dark;");
-    lines.push(declarations(themeDependent, `${style}-dark`, "    "));
+    lines.push(declarations(themeDependent, auto.dark, "    "));
     lines.push("  }");
   }
   lines.push("}");

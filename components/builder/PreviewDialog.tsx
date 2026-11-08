@@ -3,6 +3,8 @@
 import { Monitor, Smartphone, X } from "lucide-react";
 import * as React from "react";
 
+import { scopeDialogTheme } from "@/components/app/dialog-theme";
+
 import { cx } from "@/components/aiesec";
 import { FormRenderer } from "@/components/form/FormRenderer";
 import type { FormDocument } from "@/lib/forms/schema";
@@ -21,6 +23,7 @@ export function PreviewDialog({ open, onClose, doc }: { open: boolean; onClose: 
     if (open && !dialog.open) {
       setSession((value) => value + 1);
       setDevice(window.innerWidth < 1024 ? "phone" : "desktop");
+      scopeDialogTheme(dialog);
       dialog.showModal();
     }
     if (!open && dialog.open) dialog.close();
