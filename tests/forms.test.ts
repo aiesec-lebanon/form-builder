@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { compatibleTypes, convertField, createField, FIELD_DEFINITIONS, validateAnswers, validateField } from "@/lib/forms/fields";
@@ -5,9 +7,10 @@ import { formatIsoDate } from "@/lib/forms/fields/other";
 import { normalizeUrl } from "@/lib/forms/fields/text";
 import { buildAnswers, buildCells, buildRowData, fieldHeaders } from "@/lib/forms/payload";
 import { publishProblems } from "@/lib/forms/publish-checks";
-import { allFields, FIELD_TYPES, formDocumentSchema, parseDocument, type Field, type FieldOf } from "@/lib/forms/schema";
+import { allFields, FIELD_TYPES, FORM_STYLES, formDocumentSchema, parseDocument, type Field, type FieldOf } from "@/lib/forms/schema";
 import { normalizeSlug, slugProblem } from "@/lib/forms/slug";
 import { blankDocument, TEMPLATES, templateDocument } from "@/lib/forms/templates";
+import { formThemeAttribute } from "@/lib/forms/theme";
 
 const expectOk = (field: Field, raw: unknown, value: unknown) => expect(validateField(field, raw)).toEqual({ ok: true, value });
 const expectError = (field: Field, raw: unknown, message?: string) => {
@@ -286,6 +289,32 @@ describe("publish checks", () => {
     const problems = publishProblems(doc, { hasPrimaryDestination: true, hasFileStorage: false });
     expect(problems.map((problem) => problem.id)).toEqual(["file-storage"]);
     expect(publishProblems(doc, { hasPrimaryDestination: true, hasFileStorage: true })).toEqual([]);
+  });
+});
+
+describe("form look", () => {
+  it("maps style and colour scheme to the design system's themes", () => {
+    expect(formThemeAttribute("calm", "auto")).toBeUndefined();
+    expect(formThemeAttribute("calm", "dark")).toBe("dark");
+    expect(formThemeAttribute("warm", "auto")).toBe("warm");
+    expect(formThemeAttribute("bold", "light")).toBe("bold-light");
+    expect(formThemeAttribute("playful", "dark")).toBe("playful-dark");
+  });
+
+  it("has tokens for every style and scheme", () => {
+    const css = readFileSync("components/aiesec/tokens.css", "utf8");
+    for (const style of FORM_STYLES) {
+      for (const mode of ["light", "dark", "auto"] as const) {
+        const theme = formThemeAttribute(style, mode);
+        if (theme) expect(css, theme).toContain(`[data-theme="${theme}"] {`);
+      }
+    }
+  });
+
+  it("gives older forms the calm style", () => {
+    const doc = blankDocument();
+    const legacy = { ...doc, theme: { accent: doc.theme.accent, mode: doc.theme.mode } };
+    expect(parseDocument(legacy)?.theme.style).toBe("calm");
   });
 });
 

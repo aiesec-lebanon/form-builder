@@ -8,6 +8,7 @@ import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { computeVisibility, visibleFields } from "@/lib/forms/logic";
 import { allFields, type FormDocument } from "@/lib/forms/schema";
+import { formThemeAttribute } from "@/lib/forms/theme";
 
 import { linkify } from "./linkify";
 import { Question } from "./Question";
@@ -282,7 +283,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   );
 
   const pageErrors = page.fields.filter((field) => errors[field.id]);
-  const themeAttribute = themeOverride ?? (doc.theme.mode === "auto" ? undefined : doc.theme.mode);
+  const themeAttribute = formThemeAttribute(doc.theme.style, themeOverride ?? doc.theme.mode);
   const questionCount = allFields(doc).filter(collectsAnswer).length;
 
   return (

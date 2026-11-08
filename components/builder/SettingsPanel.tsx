@@ -4,7 +4,14 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import * as React from "react";
 
 import { PROGRAMS, Switch, TextField, Textarea, cx } from "@/components/aiesec";
-import { PROGRAM_IDS, type FormDocument, type FormSettings, type FormTheme } from "@/lib/forms/schema";
+import { FORM_STYLES, PROGRAM_IDS, type FormDocument, type FormSettings, type FormStyle, type FormTheme } from "@/lib/forms/schema";
+
+const STYLES: Record<FormStyle, { name: string; description: string }> = {
+  calm: { name: "Calm", description: "Cool greys, flat and quiet" },
+  warm: { name: "Warm", description: "Warm greys, rounder, soft shadows" },
+  bold: { name: "Bold", description: "Black and white, pill buttons" },
+  playful: { name: "Playful", description: "Off-white page, round shapes" },
+};
 
 type Props = {
   doc: FormDocument;
@@ -99,6 +106,33 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
       </Section>
 
       <Section title="Look" description="Actions stay AIESEC Blue. The accent colours the form's header and highlights.">
+        <fieldset className="ae-fieldset">
+          <legend className="ae-fieldset__legend ae-label">Style</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {FORM_STYLES.map((id) => (
+              <label
+                key={id}
+                className={cx(
+                  "flex cursor-pointer items-center gap-3 rounded-md border p-3 transition-colors duration-150",
+                  theme.style === id ? "border-primary bg-primary-soft" : "border-border hover:border-border-strong",
+                )}
+              >
+                <input type="radio" name="style" value={id} checked={theme.style === id} onChange={() => onTheme({ style: id })} className="ae-radio" />
+                {/* A swatch drawn in the style itself: page colour, card corners and shadow, heading font. */}
+                <span aria-hidden="true" data-theme={id === "calm" ? "light" : `${id}-light`} className="flex h-12 w-16 shrink-0 rounded-md border border-border bg-bg p-1.5">
+                  <span className="flex flex-1 flex-col justify-between rounded-lg border border-border bg-surface px-2 py-1.5 shadow-card">
+                    <span className="font-[family-name:var(--font-display)] text-xs leading-none font-bold text-text">Aa</span>
+                    <span className="h-1.5 w-7 rounded-full bg-primary" />
+                  </span>
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="ae-body-sm font-bold text-text">{STYLES[id].name}</span>
+                  <span className="ae-caption text-text-muted">{STYLES[id].description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <fieldset className="ae-fieldset">
           <legend className="ae-fieldset__legend ae-label">Accent colour</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

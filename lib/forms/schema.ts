@@ -23,6 +23,11 @@ export const PROGRAM_IDS = ["am", "gv", "gta", "gte", "ys", "h4tf"] as const;
 export type ProgramAccent = (typeof PROGRAM_IDS)[number];
 
 export const THEME_MODES = ["auto", "light", "dark"] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
+
+/** The design system's four styles (calm is its default). */
+export const FORM_STYLES = ["calm", "warm", "bold", "playful"] as const;
+export type FormStyle = (typeof FORM_STYLES)[number];
 
 export const FILE_KINDS = ["image", "video", "audio", "pdf", "document", "spreadsheet", "presentation", "archive"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
@@ -188,6 +193,7 @@ export type FormSettings = z.infer<typeof settingsSchema>;
 
 export const themeSchema = z.object({
   accent: z.enum(PROGRAM_IDS).default("am"),
+  style: z.enum(FORM_STYLES).default("calm"),
   mode: z.enum(THEME_MODES).default("auto"),
 });
 export type FormTheme = z.infer<typeof themeSchema>;
