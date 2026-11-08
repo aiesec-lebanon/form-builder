@@ -4,10 +4,12 @@ import { encryptSecret } from "@/lib/crypto";
 import { resetEnvCache } from "@/lib/env";
 import {
   a1,
+  addSheetTab,
   appendRow,
   createFolder,
   createSpreadsheet,
   getFile,
+  getSpreadsheet,
   GoogleApiError,
   driveLiteral,
   findFolder,
@@ -18,6 +20,7 @@ import {
   sheetTitleById,
   updateFile,
   trashFile,
+  uniqueTabTitle,
   startResumableUpload,
   writeHeaderRow,
 } from "@/lib/google/api";
@@ -248,5 +251,31 @@ describe("Sheets and Drive client", () => {
     await expect(startResumableUpload("tok", input)).rejects.toMatchObject({ status: 403, reason: "storageQuotaExceeded" });
     stubFetch(new Response(null, { status: 200 }));
     await expect(startResumableUpload("tok", input)).rejects.toThrow("didn't start the upload");
+  });
+});
+
+describe("existing Sheets", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads a picked spreadsheet and adds a tab to it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1/edit", properties: { title: "LC data" }, sheets: [{ properties: { sheetId: 0, title: "Members" } }] }))
+      .mockResolvedValueOnce(Response.json({ spreadsheetId: "s2", spreadsheetUrl: "https://docs/s2/edit", properties: { title: "Empty" } }))
+      .mockResolvedValueOnce(Response.json({ replies: [{ addSheet: { properties: { sheetId: 42, title: "Recruitment Responses" } } }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getSpreadsheet("tok", "s1")).toEqual({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1/edit", title: "LC data", sheets: [{ sheetId: 0, title: "Members" }] });
+    expect((await getSpreadsheet("tok", "s2")).sheets).toEqual([]);
+    expect(await addSheetTab("tok", "s1", "Recruitment Responses")).toEqual({ sheetId: 42, title: "Recruitment Responses" });
+    const [url, init] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(url).toContain("/s1:batchUpdate");
+    expect(JSON.parse(String(init.body)).requests[0].addSheet.properties).toEqual({ title: "Recruitment Responses", gridProperties: { frozenRowCount: 1 } });
+  });
+
+  it("picks a tab title that isn't taken", () => {
+    expect(uniqueTabTitle("Recruitment Responses", ["Members"])).toBe("Recruitment Responses");
+    expect(uniqueTabTitle("Recruitment Responses", ["recruitment responses", "Recruitment Responses (2)"])).toBe("Recruitment Responses (3)");
+    expect(uniqueTabTitle("  \u0007 ", [])).toBe("Responses");
+    expect(uniqueTabTitle("x".repeat(120), []).length).toBe(90);
   });
 });

@@ -8,7 +8,7 @@ import type { BuilderTab } from "@/components/builder/TopBar";
 import { getCurrentUser, requireUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { listSummaries } from "@/lib/destinations/store";
-import { baseUrl, googleConfigured } from "@/lib/env";
+import { baseUrl, googleConfigured, googlePickerConfig } from "@/lib/env";
 import { getFormAccess } from "@/lib/forms/access";
 import { parseDocument } from "@/lib/forms/schema";
 import { blankDocument } from "@/lib/forms/templates";
@@ -44,7 +44,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
 
   const [destinations, googleAccounts, collaboration] = await Promise.all([
     listSummaries(id),
-    db.googleConnection.findMany({ where: { userId: user.id, status: "active" }, select: { id: true, email: true }, orderBy: { createdAt: "asc" } }),
+    db.googleConnection.findMany({ where: { userId: user.id, status: "active" }, select: { id: true, email: true, rootFolderId: true }, orderBy: { createdAt: "asc" } }),
     loadCollaboration(id, user.id),
   ]);
   const tab = (await searchParams).tab;
@@ -70,6 +70,7 @@ export default async function EditFormPage({ params, searchParams }: Props) {
       publicBaseUrl={baseUrl()}
       destinations={destinations}
       googleConfigured={googleConfigured()}
+      googlePicker={Boolean(googlePickerConfig())}
       googleAccounts={googleAccounts}
       initialTab={initialTab}
       collaborators={collaboration ? <CollaboratorsPanel formId={form.id} initial={collaboration} /> : null}

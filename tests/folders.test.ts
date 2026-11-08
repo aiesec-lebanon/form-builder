@@ -4,15 +4,16 @@ const m = vi.hoisted(() => ({
   getFile: vi.fn(),
   findFolder: vi.fn(),
   createFolder: vi.fn(),
+  moveToFolder: vi.fn(),
   db: {
     googleConnection: { findUnique: vi.fn(), update: vi.fn() },
     destination: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   },
 }));
-vi.mock("@/lib/google/api", () => ({ getFile: m.getFile, findFolder: m.findFolder, createFolder: m.createFolder }));
+vi.mock("@/lib/google/api", () => ({ getFile: m.getFile, findFolder: m.findFolder, createFolder: m.createFolder, moveToFolder: m.moveToFolder, FOLDER_MIME: "application/vnd.google-apps.folder" }));
 vi.mock("@/lib/db", () => ({ db: m.db }));
 
-const { ensureFormFolder, ensureQuestionFolder, ensureRootFolder, folderNotice, ROOT_FOLDER_NAME } = await import("@/lib/google/folders");
+const { ensureFormFolder, ensureQuestionFolder, ensureRootFolder, folderNotice, placeRootFolder, ROOT_FOLDER_NAME } = await import("@/lib/google/folders");
 
 afterEach(() => vi.clearAllMocks());
 
@@ -90,5 +91,43 @@ describe("question upload folders", () => {
     m.db.destination.findUnique.mockResolvedValueOnce(null);
     expect(await ensureQuestionFolder("tok", { ...input, known: undefined, question: { id: "f_x", label: "" } })).toBe("q-2");
     expect(m.createFolder).toHaveBeenLastCalledWith("tok", "Recruitment File upload Uploads", "form-folder");
+  });
+});
+
+describe("choosing where AIESEC Forms goes", () => {
+  const FOLDER = "application/vnd.google-apps.folder";
+
+  it("moves the existing folder into the picked one", async () => {
+    m.getFile.mockResolvedValueOnce({ id: "lc-folder", name: "LC Beirut", mimeType: FOLDER, trashed: false }).mockResolvedValueOnce({ id: "root-1", trashed: false });
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-1" });
+    expect(await placeRootFolder("tok", "c1", "lc-folder")).toEqual({ ok: true, rootId: "root-1", parentName: "LC Beirut" });
+    expect(m.moveToFolder).toHaveBeenCalledWith("tok", "root-1", "lc-folder");
+    expect(m.db.googleConnection.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { rootFolderId: "root-1" } });
+  });
+
+  it("finds or makes it inside the picked folder when there's none yet", async () => {
+    m.getFile.mockResolvedValueOnce({ id: "lc-folder", name: "LC Beirut", mimeType: FOLDER });
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: null });
+    m.findFolder.mockResolvedValueOnce(null);
+    m.createFolder.mockResolvedValueOnce({ id: "root-new", webViewLink: "https://drive/root" });
+    expect(await placeRootFolder("tok", "c1", "lc-folder")).toMatchObject({ ok: true, rootId: "root-new" });
+    expect(m.createFolder).toHaveBeenCalledWith("tok", ROOT_FOLDER_NAME, "lc-folder");
+
+    m.getFile.mockResolvedValueOnce({ id: "lc-folder", name: "LC Beirut", mimeType: FOLDER }).mockRejectedValueOnce(new Error("gone"));
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-old" });
+    m.findFolder.mockResolvedValueOnce({ id: "root-there" });
+    expect(await placeRootFolder("tok", "c1", "lc-folder")).toMatchObject({ ok: true, rootId: "root-there" });
+    expect(m.moveToFolder).not.toHaveBeenCalled();
+  });
+
+  it("refuses files, trashed folders and the folder itself", async () => {
+    m.getFile.mockResolvedValueOnce({ id: "doc", name: "Notes", mimeType: "application/pdf" });
+    expect(await placeRootFolder("tok", "c1", "doc")).toEqual({ ok: false, message: "Choose a folder, not a file." });
+    m.getFile.mockResolvedValueOnce({ id: "old", name: "Old", mimeType: FOLDER, trashed: true });
+    expect(await placeRootFolder("tok", "c1", "old")).toMatchObject({ ok: false });
+    m.getFile.mockResolvedValueOnce({ id: "root-1", name: ROOT_FOLDER_NAME, mimeType: FOLDER }).mockResolvedValueOnce({ id: "root-1", trashed: false });
+    m.db.googleConnection.findUnique.mockResolvedValueOnce({ rootFolderId: "root-1" });
+    expect(await placeRootFolder("tok", "c1", "root-1")).toMatchObject({ ok: false, message: expect.stringContaining("itself") });
+    expect(m.db.googleConnection.update).not.toHaveBeenCalled();
   });
 });

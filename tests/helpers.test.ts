@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fail, ok } from "@/lib/action-result";
-import { baseUrl, devLoginEnabled, env, googleConfigured, resetEnvCache } from "@/lib/env";
+import { baseUrl, devLoginEnabled, env, googleConfigured, googlePickerConfig, resetEnvCache } from "@/lib/env";
 import { formatCount, plural, relativeTime, shortDate } from "@/lib/format";
 import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { clientIp, describeUserAgent, userAgent } from "@/lib/request";
@@ -119,6 +119,22 @@ describe("configuration", () => {
     expect(baseUrl()).toBe("https://forms.example.org");
     expect(googleConfigured()).toBe(false);
     expect(env()).toBe(env());
+  });
+
+  it("enables Google Picker only with OAuth, an API key and a project number", () => {
+    vi.stubEnv("GOOGLE_CLIENT_ID", "id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "secret");
+    vi.stubEnv("GOOGLE_API_KEY", "key");
+    vi.stubEnv("GOOGLE_PROJECT_NUMBER", "123456789012");
+    resetEnvCache();
+    expect(googlePickerConfig()).toEqual({ apiKey: "key", appId: "123456789012" });
+    vi.stubEnv("GOOGLE_PROJECT_NUMBER", "my-project");
+    resetEnvCache();
+    expect(googlePickerConfig()).toBeNull();
+    vi.stubEnv("GOOGLE_PROJECT_NUMBER", "123456789012");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "");
+    resetEnvCache();
+    expect(googlePickerConfig()).toBeNull();
   });
 
   it("only enables dev login in development", () => {

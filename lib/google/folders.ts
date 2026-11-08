@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
 
-import { createFolder, findFolder, getFile } from "./api";
+import { createFolder, findFolder, FOLDER_MIME, getFile, moveToFolder } from "./api";
 
 // Where this app puts things in an owner's Drive:
 //   AIESEC Forms / <form name> / <form name> Responses   (the Sheet)
@@ -33,6 +33,31 @@ export async function ensureRootFolder(token: string, connectionId: string): Pro
   const id = (await findFolder(token, ROOT_FOLDER_NAME, "root"))?.id ?? (await createFolder(token, ROOT_FOLDER_NAME)).id;
   await db.googleConnection.update({ where: { id: connectionId }, data: { rootFolderId: id } });
   return id;
+}
+
+/**
+ * Puts AIESEC Forms inside a folder the owner picked in Google Picker. An
+ * existing AIESEC Forms folder moves there, so every form's files stay together.
+ */
+export async function placeRootFolder(
+  token: string,
+  connectionId: string,
+  parentId: string,
+): Promise<{ ok: true; rootId: string; parentName: string } | { ok: false; message: string }> {
+  const parent = await getFile(token, parentId);
+  if (parent.mimeType !== FOLDER_MIME || parent.trashed) return { ok: false, message: "Choose a folder, not a file." };
+  const connection = await db.googleConnection.findUnique({ where: { id: connectionId }, select: { rootFolderId: true } });
+  const current = connection?.rootFolderId && (await usable(token, connection.rootFolderId)) ? connection.rootFolderId : null;
+  if (current === parentId) return { ok: false, message: `That's the ${ROOT_FOLDER_NAME} folder itself. Choose the folder to put it in.` };
+  let rootId: string;
+  if (current) {
+    await moveToFolder(token, current, parentId);
+    rootId = current;
+  } else {
+    rootId = (await findFolder(token, ROOT_FOLDER_NAME, parentId))?.id ?? (await createFolder(token, ROOT_FOLDER_NAME, parentId)).id;
+  }
+  await db.googleConnection.update({ where: { id: connectionId }, data: { rootFolderId: rootId } });
+  return { ok: true, rootId, parentName: parent.name };
 }
 
 export type FormFolder = { id: string; url: string; name: string; /** The form's name when another folder already had it. */ takenName: string | null };

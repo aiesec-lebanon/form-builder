@@ -18,6 +18,7 @@ type Props = {
   destinations: DestinationSummary[];
   onDestinations: (destinations: DestinationSummary[]) => void;
   googleConfigured: boolean;
+  googlePicker?: boolean;
   googleAccounts: GoogleAccount[];
   hasFileQuestions: boolean;
   doc?: FormDocument;
@@ -65,7 +66,7 @@ function Chooser({ onChoose, googleConfigured }: { onChoose: (type: DestinationT
   );
 }
 
-export function ConnectPanel({ formId, destinations, onDestinations, googleConfigured, googleAccounts, hasFileQuestions, doc }: Props) {
+export function ConnectPanel({ formId, destinations, onDestinations, googleConfigured, googlePicker, googleAccounts, hasFileQuestions, doc }: Props) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -159,6 +160,7 @@ export function ConnectPanel({ formId, destinations, onDestinations, googleConfi
         onClose={() => setSetup(null)}
         onDestinations={onDestinations}
         googleConfigured={googleConfigured}
+        googlePicker={googlePicker ?? false}
         googleAccounts={googleAccounts}
         googleReturnTo={googleReturnTo}
       />

@@ -41,6 +41,14 @@ describe("proxy gate", () => {
     expect(await response.json()).toMatchObject({ error: "unauthorized" });
   });
 
+  it("allows Google Picker's frame only when Picker is configured", async () => {
+    expect((await proxy(request("/f/abc123"))).headers.get("content-security-policy")).not.toContain("docs.google.com");
+    vi.stubEnv("GOOGLE_API_KEY", "key");
+    vi.stubEnv("GOOGLE_PROJECT_NUMBER", "123456789012");
+    expect((await proxy(request("/f/abc123"))).headers.get("content-security-policy")).toMatch(/frame-src [^;]*https:\/\/docs\.google\.com/);
+    vi.unstubAllEnvs();
+  });
+
   it("lets public routes through with security headers", async () => {
     const response = await proxy(request("/f/abc123"));
     expect(response.status).toBe(200);

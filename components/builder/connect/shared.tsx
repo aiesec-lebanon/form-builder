@@ -10,7 +10,7 @@ export const DESTINATION_META: Record<DestinationType, { name: string; icon: Luc
   google_drive: { name: "Google Drive", icon: FolderOpen, blurb: "Uploaded files go to a folder in your Drive." },
 };
 
-export type GoogleAccount = { id: string; email: string };
+export type GoogleAccount = { id: string; email: string; /** The account's AIESEC Forms folder, once made. */ rootFolderId: string | null };
 
 export const WEBHOOK_VERIFY_SNIPPET = `// Node.js: verify a request from AIESEC Forms
 const crypto = require("crypto");

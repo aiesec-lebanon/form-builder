@@ -13,5 +13,5 @@ process.env.GIS_GRAPHQL_URL = "https://gis.example.test/graphql";
 process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
 
 // Optional features start off; tests that need one stub it with vi.stubEnv.
-const OPTIONAL_KEYS = ["DATABASE_CA_CERT", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "DEV_LOGIN", "PLATFORM_ADMIN_PERSON_IDS", "REQUIRE_CURRENT_POSITION"];
+const OPTIONAL_KEYS = ["DATABASE_CA_CERT", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_API_KEY", "GOOGLE_PROJECT_NUMBER", "TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY", "DEV_LOGIN", "PLATFORM_ADMIN_PERSON_IDS", "REQUIRE_CURRENT_POSITION"];
 for (const key of OPTIONAL_KEYS) delete process.env[key];

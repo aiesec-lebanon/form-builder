@@ -83,6 +83,37 @@ export async function appendRow(token: string, spreadsheetId: string, sheetTitle
   });
 }
 
+export type SpreadsheetInfo = { spreadsheetId: string; spreadsheetUrl: string; title: string; sheets: Array<{ sheetId: number; title: string }> };
+
+/** A spreadsheet the owner made with us or picked in Google Picker. */
+export async function getSpreadsheet(token: string, spreadsheetId: string): Promise<SpreadsheetInfo> {
+  const fields = "spreadsheetId,spreadsheetUrl,properties.title,sheets.properties(sheetId,title)";
+  const data = await call<{ spreadsheetId: string; spreadsheetUrl: string; properties: { title: string }; sheets?: Array<{ properties: { sheetId: number; title: string } }> }>(
+    token,
+    `${SHEETS}/${encodeURIComponent(spreadsheetId)}?fields=${encodeURIComponent(fields)}`,
+  );
+  return { spreadsheetId: data.spreadsheetId, spreadsheetUrl: data.spreadsheetUrl, title: data.properties.title, sheets: (data.sheets ?? []).map((sheet) => sheet.properties) };
+}
+
+/** Adds a tab with a frozen header row. */
+export async function addSheetTab(token: string, spreadsheetId: string, title: string): Promise<{ sheetId: number; title: string }> {
+  const result = await call<{ replies: Array<{ addSheet: { properties: { sheetId: number; title: string } } }> }>(token, `${SHEETS}/${encodeURIComponent(spreadsheetId)}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } }] }),
+  });
+  const { sheetId, title: created } = result.replies[0].addSheet.properties;
+  return { sheetId, title: created };
+}
+
+/** A tab title not used yet in the spreadsheet (titles are unique regardless of case). */
+export function uniqueTabTitle(base: string, existing: string[]): string {
+  const taken = new Set(existing.map((title) => title.toLowerCase()));
+  const clean = base.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "Responses";
+  let title = clean;
+  for (let attempt = 2; taken.has(title.toLowerCase()); attempt += 1) title = `${clean} (${attempt})`;
+  return title;
+}
+
 export async function sheetTitleById(token: string, spreadsheetId: string, sheetId: number): Promise<string | null> {
   const data = await call<{ sheets?: Array<{ properties: { sheetId: number; title: string } }> }>(token, `${SHEETS}/${spreadsheetId}?fields=sheets.properties(sheetId,title)`);
   return data.sheets?.find((sheet) => sheet.properties.sheetId === sheetId)?.properties.title ?? null;

@@ -47,6 +47,9 @@ const schema = z.object({
     .transform((value) => value === "true"),
   GOOGLE_CLIENT_ID: optionalText,
   GOOGLE_CLIENT_SECRET: optionalText,
+  /** Google Picker (choose a Sheet or folder): a browser API key and the Cloud project number. */
+  GOOGLE_API_KEY: optionalText,
+  GOOGLE_PROJECT_NUMBER: optionalText,
   TURNSTILE_SITE_KEY: optionalText,
   TURNSTILE_SECRET_KEY: optionalText,
   DEV_LOGIN: optionalText,
@@ -75,6 +78,13 @@ export function baseUrl(): string {
 export function googleConfigured(): boolean {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env();
   return Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+}
+
+/** Google Picker settings, or null when choosing files from Drive isn't set up. */
+export function googlePickerConfig(): { apiKey: string; appId: string } | null {
+  const { GOOGLE_API_KEY, GOOGLE_PROJECT_NUMBER } = env();
+  if (!googleConfigured() || !GOOGLE_API_KEY || !GOOGLE_PROJECT_NUMBER || !/^\d{6,20}$/.test(GOOGLE_PROJECT_NUMBER)) return null;
+  return { apiKey: GOOGLE_API_KEY, appId: GOOGLE_PROJECT_NUMBER };
 }
 
 /** Dev login is impossible in production builds, whatever DEV_LOGIN says. */

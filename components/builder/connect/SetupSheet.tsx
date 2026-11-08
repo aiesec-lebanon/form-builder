@@ -1,15 +1,17 @@
 "use client";
 
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, FileSpreadsheet } from "lucide-react";
 import * as React from "react";
 
 import { Alert, Button, RadioGroup, TextField, useToast } from "@/components/aiesec";
 import { addGoogleDrive, addGoogleSheet, addPostgres, addSupabase, addWebhook } from "@/actions/destinations";
+import { googlePickerSession, setGoogleFolderLocation } from "@/actions/google";
 import { CopyBlock } from "@/components/app/CopyBlock";
 import { POSTGRES_TABLE_SQL, SUPABASE_TABLE_SQL } from "@/lib/destinations/sql";
 import type { DestinationSummary, DestinationType } from "@/lib/destinations/types";
 
 import { Sheet } from "../Sheet";
+import { pickFromDrive, withDialogHidden, type PickedFile } from "./google-picker";
 import { DESTINATION_META, WEBHOOK_VERIFY_SNIPPET, type GoogleAccount } from "./shared";
 
 type Props = {
@@ -18,6 +20,8 @@ type Props = {
   onClose: () => void;
   onDestinations: (destinations: DestinationSummary[]) => void;
   googleConfigured: boolean;
+  /** Google Picker is set up: owners can choose an existing Sheet and where AIESEC Forms goes. */
+  googlePicker: boolean;
   googleAccounts: GoogleAccount[];
   /** Where Google should send people back to after connecting. */
   googleReturnTo: string;
@@ -25,7 +29,7 @@ type Props = {
 
 type FieldErrors = Record<string, string>;
 
-export function SetupSheet({ type, formId, onClose, onDestinations, googleConfigured, googleAccounts, googleReturnTo }: Props) {
+export function SetupSheet({ type, formId, onClose, onDestinations, googleConfigured, googlePicker, googleAccounts, googleReturnTo }: Props) {
   const toast = useToast();
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
@@ -33,6 +37,32 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
   const [values, setValues] = React.useState<Record<string, string>>({ table: "form_responses", schema: "public" });
   const [account, setAccount] = React.useState(googleAccounts[0]?.id ?? "");
   const [webhookSecret, setWebhookSecret] = React.useState<string | null>(null);
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [sheetSource, setSheetSource] = React.useState<"new" | "existing">("new");
+  const [pickedSheet, setPickedSheet] = React.useState<PickedFile | null>(null);
+  const [picking, setPicking] = React.useState(false);
+  const [rootFolders, setRootFolders] = React.useState<Record<string, string | null>>(() => Object.fromEntries(googleAccounts.map((item) => [item.id, item.rootFolderId])));
+
+  /** Google Picker for the chosen account: a Sheet to use, or where AIESEC Forms goes. */
+  const choose = async (kind: "folder" | "spreadsheet") => {
+    setError(null);
+    setPicking(true);
+    try {
+      const session = await googlePickerSession(account);
+      if (!session.ok) return setError(session.error);
+      const picked = await withDialogHidden(formRef.current, () => pickFromDrive(session.data, kind));
+      if (!picked) return;
+      if (kind === "spreadsheet") return setPickedSheet(picked);
+      const moved = await setGoogleFolderLocation(account, picked.id);
+      if (!moved.ok) return setError(moved.error);
+      setRootFolders((current) => ({ ...current, [account]: moved.data.rootFolderId }));
+      toast.show({ title: `AIESEC Forms is now in “${moved.data.parentName}”` });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Google's file chooser didn't open. Try again.");
+    } finally {
+      setPicking(false);
+    }
+  };
 
   // The parent keys this component by `type`, so every setup starts fresh.
   if (!type) return null;
@@ -73,7 +103,9 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
     } else if (type === "postgres") {
       run(() => addPostgres(formId, { connectionString: values.connectionString ?? "", table: values.table ?? "", schema: values.schema ?? "public" }));
     } else if (type === "google_sheets") {
-      run(() => addGoogleSheet(formId, { connectionId: account }));
+      if (sheetSource === "existing" && !pickedSheet) return setError("Choose a Sheet first.");
+      const spreadsheetId = sheetSource === "existing" ? pickedSheet?.id : undefined;
+      run(() => addGoogleSheet(formId, { connectionId: account, ...(spreadsheetId ? { spreadsheetId } : {}) }));
     } else if (type === "google_drive") {
       run(() => addGoogleDrive(formId, { connectionId: account }));
     }
@@ -81,7 +113,9 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
 
   const isGoogle = type === "google_sheets" || type === "google_drive";
   const connectHref = `/api/google/connect?returnTo=${encodeURIComponent(`${googleReturnTo}&setup=${type}`)}`;
-  const actionLabel = { google_sheets: "Create the Sheet", google_drive: "Create the uploads folder", webhook: "Connect webhook", supabase: "Test and connect", postgres: "Test and connect" }[type];
+  const rootFolder = rootFolders[account] ?? null;
+  const showGoogleOptions = isGoogle && googleConfigured && googleAccounts.length > 0;
+  const actionLabel = { google_sheets: sheetSource === "existing" ? "Use this Sheet" : "Create the Sheet", google_drive: "Create the uploads folder", webhook: "Connect webhook", supabase: "Test and connect", postgres: "Test and connect" }[type];
 
   const footer =
     webhookSecret !== null ? (
@@ -115,7 +149,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           </details>
         </div>
       ) : (
-        <form id="setup-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
+        <form ref={formRef} id="setup-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <p className="ae-body-sm text-text-muted">{meta.blurb}</p>
           {error && (
             <Alert tone="danger" title="That didn't work" live>
@@ -130,7 +164,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
               </Alert>
             ) : googleAccounts.length === 0 ? (
               <div className="flex flex-col items-start gap-3">
-                <p className="ae-body">Connect a Google account once. We only get access to files AIESEC Forms creates, nothing else in your Drive.</p>
+                <p className="ae-body">Connect a Google account once. We only get access to files AIESEC Forms creates or you choose, nothing else in your Drive.</p>
                 <Button as="a" href={connectHref} variant="primary">
                   Connect Google
                 </Button>
@@ -143,8 +177,65 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
                 </a>
               </p>
             ) : (
-              <RadioGroup legend="Google account" name="google-account" value={account} onChange={setAccount} options={googleAccounts.map((item) => ({ value: item.id, label: item.email }))} />
+              <RadioGroup
+                legend="Google account"
+                name="google-account"
+                value={account}
+                onChange={(value) => {
+                  setAccount(value);
+                  setPickedSheet(null);
+                }}
+                options={googleAccounts.map((item) => ({ value: item.id, label: item.email }))}
+              />
             ))}
+
+          {showGoogleOptions && type === "google_sheets" && googlePicker && (
+            <RadioGroup
+              legend="Send responses to"
+              name="sheet-source"
+              value={sheetSource}
+              onChange={(value) => setSheetSource(value === "existing" ? "existing" : "new")}
+              options={[
+                { value: "new", label: "A new Sheet", hint: "Named after this form, in its folder inside AIESEC Forms." },
+                { value: "existing", label: "A Sheet you already have", hint: "We add a tab for this form. Your other tabs aren't touched." },
+              ]}
+            />
+          )}
+
+          {showGoogleOptions && type === "google_sheets" && sheetSource === "existing" && (
+            <div className="flex flex-wrap items-center gap-3">
+              {pickedSheet && (
+                <p className="flex min-w-0 items-center gap-2 ae-body">
+                  <FileSpreadsheet size={18} aria-hidden="true" className="shrink-0 text-text-muted" />
+                  <strong className="break-all">{pickedSheet.name}</strong>
+                </p>
+              )}
+              <Button size="sm" loading={picking} onClick={() => choose("spreadsheet")}>
+                {pickedSheet ? "Choose another Sheet" : "Choose a Sheet"}
+              </Button>
+            </div>
+          )}
+
+          {showGoogleOptions && (type === "google_drive" || sheetSource === "new") && (
+            <p className="ae-body-sm text-text-muted">
+              {rootFolder ? (
+                <>
+                  Saved in your{" "}
+                  <a className="ae-link" href={`https://drive.google.com/drive/folders/${rootFolder}`} target="_blank" rel="noreferrer">
+                    AIESEC Forms
+                  </a>{" "}
+                  folder.
+                </>
+              ) : (
+                <>Saved in an AIESEC Forms folder in your My Drive.</>
+              )}{" "}
+              {googlePicker && (
+                <button type="button" className="ae-link cursor-pointer border-0 bg-transparent p-0" disabled={picking} onClick={() => choose("folder")}>
+                  {rootFolder ? "Move it" : "Choose another place"}
+                </button>
+              )}
+            </p>
+          )}
 
           {type === "webhook" && (
             <TextField label="Webhook URL" type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Must start with https://. We send a POST with JSON for every response." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />

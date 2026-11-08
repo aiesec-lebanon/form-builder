@@ -19,7 +19,7 @@ import { newSigningSecret } from "@/lib/destinations/webhook";
 import { googleConfigured } from "@/lib/env";
 import { getFormAccess } from "@/lib/forms/access";
 import { parseDocument } from "@/lib/forms/schema";
-import { createSpreadsheet, formatSheet, moveToFolder } from "@/lib/google/api";
+import { addSheetTab, createSpreadsheet, formatSheet, getSpreadsheet, moveToFolder, uniqueTabTitle, writeHeaderRow } from "@/lib/google/api";
 import { ensureFormFolder, folderNotice } from "@/lib/google/folders";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
@@ -205,7 +205,10 @@ async function usableConnection(userId: string, connectionId: string) {
   return connection;
 }
 
-export async function addGoogleSheet(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
+const SPREADSHEET_ID = /^[A-Za-z0-9_-]{20,200}$/;
+
+/** Responses to a new Sheet in AIESEC Forms, or (spreadsheetId, picked in Google Picker) to a new tab of an existing one. */
+export async function addGoogleSheet(formId: string, input: { connectionId: string; spreadsheetId?: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
   if (!googleConfigured()) return fail("Google isn't set up on this server yet.");
@@ -213,9 +216,21 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
   if (!connection) return fail("Connect your Google account first.");
   const doc = parseDocument(auth.form.draft);
   if (!doc) return fail("This form couldn't be read.");
+  if (input.spreadsheetId !== undefined && !SPREADSHEET_ID.test(input.spreadsheetId)) return fail("Choose the Sheet again.");
   try {
     const token = await googleAccessToken(connection.id);
     const formName = doc.title.trim() || "Untitled form";
+    if (input.spreadsheetId) {
+      // Like Google Forms: a new tab for this form; the Sheet's other tabs are left alone.
+      const existing = await getSpreadsheet(token, input.spreadsheetId);
+      const headers = initialHeaderRow(doc);
+      const tab = await addSheetTab(token, existing.spreadsheetId, uniqueTabTitle(`${formName} Responses`, existing.sheets.map((sheet) => sheet.title)));
+      await writeHeaderRow(token, existing.spreadsheetId, tab.title, headers);
+      await formatSheet(token, existing.spreadsheetId, tab.sheetId, headers).catch((error) => logger.warn("destination.sheet_format_failed", { formId, error }));
+      const config = { spreadsheetId: existing.spreadsheetId, spreadsheetUrl: `${existing.spreadsheetUrl.split("#")[0]}#gid=${tab.sheetId}`, sheetId: tab.sheetId, sheetTitle: tab.title, columns: syncColumns([], doc).columns };
+      const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_sheets", name: "Google Sheets", config, googleConnectionId: connection.id });
+      return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets"), notice: null });
+    }
     // AIESEC Forms / <form name> / <form name> Responses
     const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: formName });
     const headers = initialHeaderRow(doc);

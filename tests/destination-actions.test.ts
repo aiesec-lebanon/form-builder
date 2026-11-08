@@ -19,6 +19,9 @@ const m = vi.hoisted(() => ({
   createFolder: vi.fn(),
   moveToFolder: vi.fn(),
   formatSheet: vi.fn(),
+  getSpreadsheet: vi.fn(),
+  addSheetTab: vi.fn(),
+  writeHeaderRow: vi.fn(),
   ensureFormFolder: vi.fn(),
   tx: { destination: { delete: vi.fn(), findFirst: vi.fn(), update: vi.fn() } },
   db: {
@@ -35,7 +38,7 @@ vi.mock("@/lib/destinations/deliver", () => ({ testDestination: m.testDestinatio
 vi.mock("@/lib/destinations/store", () => ({ listSummaries: m.listSummaries, loadDestination: m.loadDestination, recordHealth: m.recordHealth }));
 vi.mock("@/lib/net/guard", async (original) => ({ ...(await original<typeof import("@/lib/net/guard")>()), assertPublicHttpsUrl: m.assertPublicHttpsUrl }));
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: m.googleAccessToken }));
-vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), createSpreadsheet: m.createSpreadsheet, createFolder: m.createFolder, moveToFolder: m.moveToFolder, formatSheet: m.formatSheet }));
+vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), createSpreadsheet: m.createSpreadsheet, createFolder: m.createFolder, moveToFolder: m.moveToFolder, formatSheet: m.formatSheet, getSpreadsheet: m.getSpreadsheet, addSheetTab: m.addSheetTab, writeHeaderRow: m.writeHeaderRow }));
 vi.mock("@/lib/google/folders", async (original) => ({ ...(await original<typeof import("@/lib/google/folders")>()), ensureFormFolder: m.ensureFormFolder }));
 vi.mock("@/lib/db", () => ({ db: m.db }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
@@ -183,6 +186,26 @@ describe("Google destinations", () => {
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: "This form couldn't be read." });
     m.db.googleConnection.findFirst.mockResolvedValueOnce(null);
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: "Connect your Google account first." });
+  });
+
+  it("adds a tab for this form to a Sheet the owner picked", async () => {
+    m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
+    m.googleAccessToken.mockResolvedValue("tok");
+    const spreadsheetId = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
+    m.getSpreadsheet.mockResolvedValueOnce({ spreadsheetId, spreadsheetUrl: "https://docs.google.com/spreadsheets/d/x/edit#gid=0", title: "LC data", sheets: [{ sheetId: 0, title: "Recruitment Responses" }] });
+    m.addSheetTab.mockResolvedValueOnce({ sheetId: 77, title: "Recruitment Responses (2)" });
+    m.writeHeaderRow.mockResolvedValueOnce(undefined);
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toMatchObject({ ok: true, data: { notice: null } });
+    expect(m.addSheetTab).toHaveBeenCalledWith("tok", spreadsheetId, "Recruitment Responses (2)");
+    expect(m.writeHeaderRow).toHaveBeenCalledWith("tok", spreadsheetId, "Recruitment Responses (2)", expect.arrayContaining(["Submitted at"]));
+    expect(m.formatSheet).toHaveBeenCalledWith("tok", spreadsheetId, 77, expect.any(Array));
+    expect(m.createSpreadsheet).not.toHaveBeenCalled();
+    expect(m.ensureFormFolder).not.toHaveBeenCalled();
+    expect(m.db.destination.create.mock.calls[0][0].data.config).toMatchObject({ spreadsheetId, sheetId: 77, sheetTitle: "Recruitment Responses (2)", spreadsheetUrl: "https://docs.google.com/spreadsheets/d/x/edit#gid=77" });
+
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId: "../etc" })).toEqual({ ok: false, error: "Choose the Sheet again." });
+    m.getSpreadsheet.mockRejectedValueOnce(new GoogleApiError(404, "notFound", "Requested entity was not found."));
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toMatchObject({ ok: false });
   });
 
   it("keeps uploads in the form's folder, one subfolder per question", async () => {

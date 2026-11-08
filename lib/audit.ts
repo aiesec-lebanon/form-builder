@@ -26,7 +26,8 @@ export type AuditType =
   | "destination.added"
   | "destination.removed"
   | "google.connected"
-  | "google.disconnected";
+  | "google.disconnected"
+  | "google.folder_moved";
 
 export type AuditInput = {
   type: AuditType;

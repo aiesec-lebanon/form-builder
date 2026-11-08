@@ -46,6 +46,8 @@ function isDocumentNavigation(request: NextRequest): boolean {
 function contentSecurityPolicy(nonce: string, frameAncestors: string, isDev: boolean): string {
   // Cloudflare Turnstile's script and challenge frame, only when it's configured (ADR-012).
   const turnstile = process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY ? " https://challenges.cloudflare.com" : "";
+  // Google Picker's chooser frame, only when it's configured (ADR-014). Its scripts load under 'strict-dynamic'.
+  const picker = process.env.GOOGLE_API_KEY && process.env.GOOGLE_PROJECT_NUMBER ? " https://docs.google.com" : "";
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${turnstile}${isDev ? " 'unsafe-eval'" : ""}`,
@@ -55,7 +57,7 @@ function contentSecurityPolicy(nonce: string, frameAncestors: string, isDev: boo
     // Browser-to-Drive resumable uploads (ADR-004).
     "connect-src 'self' https://www.googleapis.com",
     "media-src 'self'",
-    `frame-src 'self'${turnstile}`,
+    `frame-src 'self'${turnstile}${picker}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "object-src 'none'",

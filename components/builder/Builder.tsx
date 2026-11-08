@@ -49,6 +49,8 @@ type Props = {
   publicBaseUrl: string;
   destinations: DestinationSummary[];
   googleConfigured: boolean;
+  /** Owners can choose existing Sheets and folders with Google Picker. */
+  googlePicker: boolean;
   googleAccounts: GoogleAccount[];
   initialTab: BuilderTab;
   collaborators?: React.ReactNode;
@@ -59,7 +61,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return Boolean(element && (element.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)));
 }
 
-export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googleAccounts, initialTab, collaborators }: Props) {
+export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, destinations: initialDestinations, googleConfigured, googlePicker, googleAccounts, initialTab, collaborators }: Props) {
   const toast = useToast();
   const pathname = usePathname();
   const [state, dispatch] = React.useReducer(builderReducer, initialDoc, initialState);
@@ -335,7 +337,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
         )}
         {tab === "connect" && (
           <main id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" className={panelClass}>
-            <ConnectPanel formId={form.id} destinations={destinations} onDestinations={setDestinations} googleConfigured={googleConfigured} googleAccounts={googleAccounts} hasFileQuestions={hasFileQuestions} doc={state.doc} />
+            <ConnectPanel formId={form.id} destinations={destinations} onDestinations={setDestinations} googleConfigured={googleConfigured} googlePicker={googlePicker} googleAccounts={googleAccounts} hasFileQuestions={hasFileQuestions} doc={state.doc} />
           </main>
         )}
         {tab === "settings" && (
