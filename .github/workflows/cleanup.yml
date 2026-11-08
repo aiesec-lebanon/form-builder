@@ -1,0 +1,53 @@
+name: Daily cleanup
+
+# Calls the app's housekeeping endpoint once a day: old rate-limit records,
+# forms in the trash for 30+ days, activity and messages older than a year,
+# and uploads never sent with a response (7+ days).
+#
+# Kept tiny so it never crowds the organisation's other scheduled jobs: one
+# run a day at an off-the-hour minute (GitHub's scheduler is busiest at :00),
+# a single curl call with no checkout or installs (done in seconds), a hard
+# 2-minute cap, and never two runs at once.
+#
+# Needs, in Settings → Secrets and variables → Actions:
+#   variable APP_URL     the production address, e.g. https://forms.aiesec.lb
+#   secret   CRON_SECRET the same value as CRON_SECRET in the app's environment
+
+on:
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: daily-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Run housekeeping
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call the cleanup endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Set the APP_URL variable and the CRON_SECRET secret in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          # Retries only temporary problems (timeouts, 429, 5xx); the cleanup is safe to repeat.
+          status=$(curl --silent --show-error --max-time 90 --retry 2 --retry-delay 20 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --output response.json --write-out "%{http_code}" \
+            "${APP_URL%/}/api/cron/cleanup")
+          cat response.json
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::The cleanup endpoint answered HTTP ${status}."
+            exit 1
+          fi

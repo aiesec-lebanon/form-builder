@@ -14,7 +14,7 @@ const TRASH_DAYS = 30;
 const AUDIT_DAYS = 365;
 const day = 24 * 60 * 60 * 1000;
 
-/** Daily housekeeping (Vercel Cron sends `Authorization: Bearer $CRON_SECRET`). */
+/** Daily housekeeping, called by the GitHub Actions workflow .github/workflows/cleanup.yml with `Authorization: Bearer $CRON_SECRET`. */
 export async function GET(request: NextRequest) {
   const presented = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   if (!presented || !safeEqual(presented, env().CRON_SECRET)) return new NextResponse(null, { status: 401 });

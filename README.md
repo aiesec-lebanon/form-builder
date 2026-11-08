@@ -42,7 +42,7 @@ AIESEC Forms is built around a few rules:
 
 - Collaborators by email or EXPA ID, and ownership transfer.
 - An activity log of sign-ins and changes for platform admins at `/admin/activity`.
-- A daily cleanup job that purges deleted forms after 30 days, trims old activity and rate-limit records, and moves abandoned uploads to the Drive trash.
+- A daily cleanup job (GitHub Actions) that purges deleted forms after 30 days, trims old activity, messages and rate-limit records, and moves abandoned uploads to the Drive trash.
 
 ## Destinations
 
@@ -138,7 +138,7 @@ Ignore requests you have already processed by checking `Idempotency-Key`. Return
 - PostgreSQL ([Supabase](https://supabase.com)) through [Prisma 7](https://www.prisma.io) and the `pg` driver
 - Zod for validation, jose for sealed session cookies, dnd-kit for drag and drop, lucide-react icons
 - Vitest for unit tests and Playwright for end-to-end smoke tests
-- [Vercel](https://vercel.com) for hosting and the daily cron
+- [Vercel](https://vercel.com) for hosting, and GitHub Actions for CI and the daily cleanup
 
 ## Getting started
 
@@ -205,7 +205,7 @@ All settings are environment variables. [.env.example](.env.example) lists them 
 | `GIS_GRAPHQL_URL` | Yes | AIESEC's GraphQL API, used to read the signed-in member's profile and entities. |
 | `SESSION_SECRET` | Yes | 32+ characters. Seals session cookies and derives other keys. |
 | `ENCRYPTION_KEY` | Yes | Base64 of 32 random bytes. Encrypts owner secrets and Google tokens. Changing it makes stored secrets unreadable. |
-| `CRON_SECRET` | Yes | 16+ characters. Vercel Cron sends it to `/api/cron/cleanup`. |
+| `CRON_SECRET` | Yes | 16+ characters. The daily cleanup workflow sends it to `/api/cron/cleanup`. |
 | `NEXT_PUBLIC_BASE_URL` | Yes | The public origin, for example `https://forms.example.org`. |
 | `PLATFORM_ADMIN_PERSON_IDS` | No | Comma-separated EXPA person IDs who can open `/admin/activity`. |
 | `REQUIRE_CURRENT_POSITION` | No | `true` (default) lets only members with a current EXPA position sign in. |
@@ -220,8 +220,9 @@ AIESEC Forms is built for Vercel and a Supabase Postgres database.
 1. **Database.** Create a Supabase project and run `npm run db:migrate` with its `DIRECT_URL`. Migrations turn on row-level security and remove the Data API roles' access, so only the app can read the tables.
 2. **AIESEC sign-in.** Register `https://<domain>/api/auth/callback` on your AIESEC OAuth application.
 3. **Google (optional).** In Google Cloud, enable the Sheets and Drive APIs and add the `openid`, `userinfo.email` and `drive.file` scopes. Add `https://<domain>` as an authorized origin and `https://<domain>/api/google/callback` as a redirect URI. While the Google app is in testing, only listed test users can connect and connections expire after 7 days. Publish it with `/privacy` as the privacy policy URL to lift both limits.
-4. **Vercel.** Import the repository, set every variable from the table above, and deploy. [vercel.json](vercel.json) schedules the daily cleanup and sets the function region. Change `regions` to the region closest to your database.
-5. **Check.** `GET /api/health` should return `{"ok":true,"db":"up"}`. Then sign in, create a form, connect a destination, publish it and send a test response from your phone.
+4. **Vercel.** Import the repository, set every variable from the table above, and deploy. [vercel.json](vercel.json) sets the function region; change `regions` to the region closest to your database.
+5. **Daily cleanup.** In the GitHub repository, Settings → Secrets and variables → Actions: add the variable `APP_URL` (your production address) and the secret `CRON_SECRET` (the same value as in Vercel). [cleanup.yml](.github/workflows/cleanup.yml) then calls `/api/cron/cleanup` once a day; run it by hand from the Actions tab to check.
+6. **Check.** `GET /api/health` should return `{"ok":true,"db":"up"}`. Then sign in, create a form, connect a destination, publish it and send a test response from your phone.
 
 Run `npm run db:migrate` again whenever a release adds a migration in [prisma/migrations/](prisma/migrations/).
 
