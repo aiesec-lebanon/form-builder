@@ -158,7 +158,7 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
         <Switch label="Show a progress bar" hint="Only appears on forms with more than one page." checked={settings.showProgressBar} onChange={(event) => onSettings({ showProgressBar: event.target.checked })} />
       </Section>
 
-      <Section title="Look" description="Actions stay AIESEC Blue. The accent colours the form's header and highlights.">
+      <Section title="Look" description="The accent colours the form's buttons, choices and top bar.">
         <fieldset className="ae-fieldset">
           <legend className="ae-fieldset__legend ae-label">Style</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -212,7 +212,8 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
               <label
                 key={mode.id}
                 className={cx(
-                  "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 transition-colors duration-150",
+                  "relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 transition-colors duration-150",
+                  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
                   theme.mode === mode.id ? "border-primary bg-primary-soft text-primary-text" : "border-border text-text hover:border-border-strong",
                 )}
               >

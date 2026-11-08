@@ -253,7 +253,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
   };
 
   const publishLabel = !published ? "Publish" : upToDate ? "Published" : "Publish changes";
-  const panelClass = "min-w-0 flex-1 overflow-y-auto bg-bg-subtle dark:bg-bg";
+  const panelClass = "relative min-w-0 flex-1 overflow-y-auto bg-bg-subtle dark:bg-bg";
 
   return (
     // A dense editing tool: the design system's subtle motion keeps it to quick state changes.
@@ -316,7 +316,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
       <div className="flex min-h-0 flex-1">
         {tab === "questions" && (
           <>
-            <aside aria-label="Question types" className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-bg lg:block">
+            <aside aria-label="Question types" className="relative hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-bg lg:block">
               <Palette onPick={(type) => addQuestion(type)} onAddPage={addPage} />
             </aside>
             <main id="panel-questions" role="tabpanel" aria-labelledby="tab-questions" className={panelClass}>
@@ -330,7 +330,7 @@ export function Builder({ form: initialForm, doc: initialDoc, publicBaseUrl, des
                 onOpenSettings={() => setSettingsOpen(true)}
               />
             </main>
-            <aside aria-label="Question settings" className="hidden w-80 shrink-0 overflow-y-auto border-l border-border bg-bg lg:block">
+            <aside aria-label="Question settings" className="relative hidden w-80 shrink-0 overflow-y-auto border-l border-border bg-bg lg:block">
               <Inspector field={selected} onChange={(patch) => selected && dispatch({ type: "updateField", id: selected.id, patch })} questionCount={questionCount} pageCount={state.doc.pages.length} doc={state.doc} />
             </aside>
           </>

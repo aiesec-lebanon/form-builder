@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import NextLink from "next/link";
 
-import { AppMark } from "@/components/brand/Logo";
+import { PublicPage } from "@/components/app/PublicPage";
 
 export const metadata: Metadata = { title: "Privacy" };
 
@@ -9,11 +8,8 @@ const UPDATED = "9 November 2026";
 
 export default function PrivacyPage() {
   return (
-    <main className="ae-container flex flex-col gap-10 py-8 lg:py-12">
-      <NextLink href="/" aria-label="AIESEC Forms home" className="w-fit no-underline">
-        <AppMark />
-      </NextLink>
-      <article className="flex max-w-[68ch] flex-col gap-8">
+    <PublicPage>
+      <article className="flex flex-col gap-8">
         <header className="flex flex-col gap-2">
           <h1 className="ae-h1">
             How AIESEC Forms <strong>handles data</strong>
@@ -30,7 +26,7 @@ export default function PrivacyPage() {
 
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">What we keep</h2>
-          <ul className="flex list-disc flex-col gap-2 pl-6 ae-body">
+          <ul className="m-0 flex list-disc flex-col gap-2 pl-6 ae-body">
             <li>For members who sign in: name, EXPA ID, email, profile photo, entity and position from EXPA, and when they last signed in.</li>
             <li>Form definitions: questions, settings, and who can edit each form.</li>
             <li>Destination settings. Passwords, keys and tokens are encrypted.</li>
@@ -82,6 +78,6 @@ export default function PrivacyPage() {
           <p className="ae-body">AIESEC Forms is run by AIESEC in Lebanon. Questions about this policy go to the platform team of AIESEC in Lebanon.</p>
         </section>
       </article>
-    </main>
+    </PublicPage>
   );
 }

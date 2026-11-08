@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import NextLink from "next/link";
 import { notFound } from "next/navigation";
 
-import { AppMark } from "@/components/brand/Logo";
+import { PublicPage } from "@/components/app/PublicPage";
 import { ReportForm } from "@/components/form/ReportForm";
 import { db } from "@/lib/db";
 
@@ -18,11 +18,8 @@ export default async function ReportFormPage({ params }: Props) {
   if (!form || form.deletedAt || !form.published) notFound();
 
   return (
-    <main className="ae-container flex flex-col gap-10 py-8 lg:py-12">
-      <NextLink href="/" aria-label="AIESEC Forms home" className="w-fit no-underline">
-        <AppMark />
-      </NextLink>
-      <div className="flex max-w-[60ch] flex-col gap-8">
+    <PublicPage>
+      <div className="flex flex-col gap-8">
         <header className="flex flex-col gap-2">
           <h1 className="ae-h2">Report a form</h1>
           <p className="ae-body text-text-muted">
@@ -36,6 +33,6 @@ export default async function ReportFormPage({ params }: Props) {
           </NextLink>
         </p>
       </div>
-    </main>
+    </PublicPage>
   );
 }

@@ -343,7 +343,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   const questionCount = allFields(doc).filter(collectsAnswer).length;
 
   return (
-    <div ref={rootRef} data-program={doc.theme.accent} data-theme={themeAttribute} className={cx("text-text", transparent ? "bg-transparent" : "bg-bg", fullHeight && "min-h-dvh")}>
+    <div ref={rootRef} data-program={doc.theme.accent} data-theme={themeAttribute} className={cx("fb-form text-text", transparent ? "bg-transparent" : "bg-bg", fullHeight && "min-h-dvh")}>
       <div aria-hidden="true" className="h-1.5 w-full bg-accent" />
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
         {status === "sent" ? (

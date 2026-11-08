@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import NextLink from "next/link";
 
-import { AppMark } from "@/components/brand/Logo";
+import { PublicPage } from "@/components/app/PublicPage";
 
 export const metadata: Metadata = { title: "Terms of Service" };
 
@@ -9,11 +9,8 @@ const UPDATED = "9 November 2026";
 
 export default function TermsPage() {
   return (
-    <main className="ae-container flex flex-col gap-10 py-8 lg:py-12">
-      <NextLink href="/" aria-label="AIESEC Forms home" className="w-fit no-underline">
-        <AppMark />
-      </NextLink>
-      <article className="flex max-w-[68ch] flex-col gap-8">
+    <PublicPage>
+      <article className="flex flex-col gap-8">
         <header className="flex flex-col gap-2">
           <h1 className="ae-h1">
             Terms of <strong>Service</strong>
@@ -30,7 +27,7 @@ export default function TermsPage() {
 
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">If you fill in a form</h2>
-          <ul className="flex list-disc flex-col gap-2 pl-6 ae-body">
+          <ul className="m-0 flex list-disc flex-col gap-2 pl-6 ae-body">
             <li>Your answers go to the form&apos;s owner, not to AIESEC Forms. Questions about how they&apos;re used go to the owner (use &ldquo;Contact form owner&rdquo; at the bottom of the form).</li>
             <li>Never send passwords, bank or card details through a form.</li>
             <li>If a form looks suspicious, use &ldquo;Report&rdquo; at the bottom of the form.</li>
@@ -39,7 +36,7 @@ export default function TermsPage() {
 
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">If you make a form</h2>
-          <ul className="flex list-disc flex-col gap-2 pl-6 ae-body">
+          <ul className="m-0 flex list-disc flex-col gap-2 pl-6 ae-body">
             <li>Use AIESEC Forms for AIESEC work, and follow AIESEC&apos;s policies and the law, including data protection rules.</li>
             <li>Tell people what you collect and why, and only ask for what you need.</li>
             <li>Don&apos;t ask for passwords, don&apos;t pretend to be someone else, and don&apos;t use forms for spam, harassment or anything harmful or illegal.</li>
@@ -73,6 +70,6 @@ export default function TermsPage() {
           </p>
         </section>
       </article>
-    </main>
+    </PublicPage>
   );
 }

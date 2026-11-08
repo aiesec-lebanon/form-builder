@@ -140,6 +140,18 @@
       animation: fb-dialog-in var(--ae-duration-slow) var(--ae-ease-out);
     }
   }
+  /* Forms: the owner's accent colours actions too (buttons, selected choices,
+     links), not only identity marks. Foregrounds use the contrast-safe
+     on-accent and accent-text tokens; hover and press move towards the text
+     colour, so they darken on light themes and lighten on dark ones. */
+  .fb-form[data-program] {
+    --ae-primary: var(--ae-accent);
+    --ae-on-primary: var(--ae-on-accent);
+    --ae-primary-hover: color-mix(in oklab, var(--ae-accent) 86%, var(--ae-text));
+    --ae-primary-active: color-mix(in oklab, var(--ae-accent) 76%, var(--ae-text));
+    --ae-primary-soft: var(--ae-accent-soft);
+    --ae-primary-text: var(--ae-accent-text);
+  }
   /* Transparent embeds let the host page's background show through. */
   html:has(.fb-embed-transparent),
   body:has(.fb-embed-transparent) {

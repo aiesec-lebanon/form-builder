@@ -73,7 +73,7 @@ export function RespondentGate({ doc, slug, reason, respondent, signInError }: P
   const error = reason === "sign_in" && signInError ? (SIGN_IN_ERRORS[signInError] ?? "Sign-in didn't finish. Try again.") : null;
 
   return (
-    <div data-program={doc.theme.accent} data-theme={formThemeAttribute(doc.theme.style, doc.theme.mode)} className="min-h-dvh bg-bg text-text">
+    <div data-program={doc.theme.accent} data-theme={formThemeAttribute(doc.theme.style, doc.theme.mode)} className="fb-form min-h-dvh bg-bg text-text">
       <div aria-hidden="true" className="h-1.5 w-full bg-accent" />
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
         <p className="ae-label text-text-muted">{doc.title || "Form"}</p>
