@@ -179,7 +179,7 @@ export const fileUpload: FieldDefinition<FieldOf<"file_upload">> = {
   hint: "CV, photo, video. Saved to your Drive",
   group: "other",
   collectsAnswer: true,
-  create: (id) => ({ id, type: "file_upload", label: "", description: "", required: false, visibleIf: null, maxFiles: 1, maxSizeMb: 10, accept: [] }),
+  create: (id) => ({ id, type: "file_upload", label: "", description: "", required: false, visibleIf: null, maxFiles: 1, maxSizeMb: 10, accept: [], naming: null }),
   validate: (field, raw) => {
     if (raw === undefined || raw === null) return ok(null);
     const parsed = z.array(fileAnswerSchema).max(10).safeParse(raw);

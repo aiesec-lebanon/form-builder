@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
   deliverToSecondaries: vi.fn(),
   resolveUploadedFiles: vi.fn(),
   filesDestination: vi.fn(),
-  markFilesSubmitted: vi.fn(),
+  finalizeUploads: vi.fn(),
   cleanOrphanedUploads: vi.fn(),
   verifyTurnstile: vi.fn(),
   currentRespondent: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock("@/lib/db", () => ({ db: mocks.db }));
 vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (task: () => unknown) => void task() }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit, pruneRateLimits: mocks.pruneRateLimits }));
 vi.mock("@/lib/destinations/deliver", () => ({ deliverToPrimary: mocks.deliverToPrimary, deliverToSecondaries: mocks.deliverToSecondaries }));
-vi.mock("@/lib/uploads", async (original) => ({ ...(await original<typeof import("@/lib/uploads")>()), resolveUploadedFiles: mocks.resolveUploadedFiles, filesDestination: mocks.filesDestination, markFilesSubmitted: mocks.markFilesSubmitted, cleanOrphanedUploads: mocks.cleanOrphanedUploads }));
+vi.mock("@/lib/uploads", async (original) => ({ ...(await original<typeof import("@/lib/uploads")>()), resolveUploadedFiles: mocks.resolveUploadedFiles, filesDestination: mocks.filesDestination, finalizeUploads: mocks.finalizeUploads, cleanOrphanedUploads: mocks.cleanOrphanedUploads }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: mocks.verifyTurnstile }));
 vi.mock("@/lib/forms/respondents", async (original) => ({
   ...(await original<typeof import("@/lib/forms/respondents")>()),
@@ -179,7 +179,7 @@ describe("submit endpoint", () => {
     expect((await submit.POST(post("/api/f/recruitment/submit", submission({ answers })), params)).status).toBe(502);
     mocks.resolveUploadedFiles.mockResolvedValueOnce({ ok: true, values: { [cv.id]: [{ name: "cv.pdf", url: "https://drive/x", size: 10, mimeType: "application/pdf" }] } });
     expect((await submit.POST(post("/api/f/recruitment/submit", submission({ answers })), params)).status).toBe(200);
-    expect(mocks.markFilesSubmitted).toHaveBeenCalledWith(FORM_ID, ["drive-file-0001"]);
+    expect(mocks.finalizeUploads).toHaveBeenCalledWith(FORM_ID, [{ fileId: "drive-file-0001", name: null }]);
   });
 
   it("enforces AIESEC sign-in, membership and one response per person", async () => {

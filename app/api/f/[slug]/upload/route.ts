@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
     const uploadUrl = await startResumableUpload(token, {
       folderId,
-      name: driveFileName(body.responseId, body.name),
+      name: driveFileName(body.name),
       mimeType: body.mimeType,
       size: body.size,
       origin,

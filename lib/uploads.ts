@@ -3,23 +3,60 @@ import "server-only";
 import { classifyError } from "@/lib/destinations/errors";
 import { loadDestinations } from "@/lib/destinations/store";
 import { driveConfig } from "@/lib/destinations/types";
-import type { AnswerValue, FileAnswer, ResolvedFile } from "@/lib/forms/fields";
-import type { Field } from "@/lib/forms/schema";
+import { collectsAnswer, definitionFor, type AnswerValue, type FileAnswer, type ResolvedFile } from "@/lib/forms/fields";
+import { allFields, type Field, type FormDocument } from "@/lib/forms/schema";
 import { db } from "@/lib/db";
-import { getFile, listFolderFiles, setFileProperties, trashFile } from "@/lib/google/api";
+import { getFile, listFolderFiles, trashFile, updateFile } from "@/lib/google/api";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
 
 // Server side of browser-to-Drive uploads (ADR-004).
 
-/** A Drive-safe file name, prefixed with the response so the owner can match files. */
-export function driveFileName(responseId: string, original: string): string {
-  const clean = original
+const safeName = (text: string) =>
+  text
     .replace(/[\u0000-\u001f\u007f/\\]/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 200);
-  return `${responseId.slice(0, 8)} - ${clean || "upload"}`;
+    .trim();
+
+/** The name a file is uploaded with: the person's own file name, made Drive-safe. Renamed later if the owner set a naming format. */
+export function driveFileName(original: string): string {
+  return safeName(original).slice(0, 200) || "upload";
+}
+
+/** ".pdf" from "cv.final.pdf"; "" when there's no sensible extension. */
+export function extensionOf(name: string): string {
+  const match = /\.([A-Za-z0-9]{1,10})$/.exec(name.trim());
+  return match ? `.${match[1].toLowerCase()}` : "";
+}
+
+/**
+ * New names for a response's uploads from the owner's naming format (e.g.
+ * "Lina Haddad_1.pdf"). Questions without an answer are skipped; with no
+ * answers at all the original name stays. Every file is listed, so all get
+ * marked as part of a sent response.
+ */
+export function plannedUploadNames(doc: FormDocument, values: Record<string, AnswerValue | null>): Array<{ fileId: string; name: string | null }> {
+  const fields = allFields(doc);
+  const planned: Array<{ fileId: string; name: string | null }> = [];
+  for (const field of fields) {
+    if (field.type !== "file_upload") continue;
+    const files = (values[field.id] as FileAnswer[] | null | undefined) ?? [];
+    const naming = field.naming;
+    const parts = (naming?.fieldIds ?? [])
+      .map((id) => fields.find((candidate) => candidate.id === id))
+      .map((source) => {
+        const value = source ? values[source.id] : null;
+        if (!source || value === null || value === undefined || !collectsAnswer(source) || source.type === "file_upload") return "";
+        return safeName(String(definitionFor(source).toCell(source, value))).slice(0, 60);
+      })
+      .filter(Boolean);
+    files.forEach((file, index) => {
+      if (!naming || parts.length === 0) return void planned.push({ fileId: file.fileId, name: null });
+      const base = [...parts, ...(naming.index ? [String(index + 1)] : [])].join(naming.separator);
+      planned.push({ fileId: file.fileId, name: `${base.slice(0, 180)}${extensionOf(file.name)}` });
+    });
+  }
+  return planned;
 }
 
 export async function filesDestination(formId: string) {
@@ -90,16 +127,23 @@ export async function resolveUploadedFiles(input: { formId: string; responseId: 
 export const ORPHAN_AFTER_DAYS = 7;
 const MAX_TRASHED_PER_FOLDER = 200;
 
-/** After a response was delivered: its files are no longer candidates for cleanup. Never throws. */
-export async function markFilesSubmitted(formId: string, fileIds: string[]): Promise<void> {
-  if (fileIds.length === 0) return;
+/**
+ * After a response was delivered: renames its files if the owner set a naming
+ * format, and marks them so the abandoned-upload cleanup leaves them. Never throws.
+ */
+export async function finalizeUploads(formId: string, files: Array<{ fileId: string; name: string | null }>): Promise<void> {
+  if (files.length === 0) return;
   try {
     const storage = await filesDestination(formId);
     if (!storage) return;
     const token = await googleAccessToken(storage.connectionId);
-    await Promise.all(fileIds.map((fileId) => setFileProperties(token, fileId, { submitted: "1" }).catch((error) => logger.warn("uploads.mark_failed", { formId, error }))));
+    await Promise.all(
+      files.map((file) =>
+        updateFile(token, file.fileId, { ...(file.name ? { name: file.name } : {}), appProperties: { submitted: "1" } }).catch((error) => logger.warn("uploads.finalize_failed", { formId, error })),
+      ),
+    );
   } catch (error) {
-    logger.warn("uploads.mark_failed", { formId, error });
+    logger.warn("uploads.finalize_failed", { formId, error });
   }
 }
 

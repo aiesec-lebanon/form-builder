@@ -158,9 +158,9 @@ describe("render tokens", () => {
 });
 
 describe("drive file names", () => {
-  it("prefixes the response and strips path tricks", () => {
-    expect(driveFileName("1234abcd-0000-4000-8000-000000000000", "../../etc/passwd")).toBe("1234abcd - .. .. etc passwd");
-    expect(driveFileName("1234abcd-0000-4000-8000-000000000000", "cv\u0000.pdf")).toBe("1234abcd - cv .pdf");
-    expect(driveFileName("1234abcd-0000-4000-8000-000000000000", "   ")).toBe("1234abcd - upload");
+  it("keeps the person's own name and strips path tricks", () => {
+    expect(driveFileName("../../etc/passwd")).toBe(".. .. etc passwd");
+    expect(driveFileName("cv\u0000.pdf")).toBe("cv .pdf");
+    expect(driveFileName("   ")).toBe("upload");
   });
 });

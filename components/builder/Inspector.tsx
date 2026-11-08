@@ -9,6 +9,7 @@ import { newId } from "@/lib/forms/ids";
 import { FILE_KINDS, LIMITS, isChoiceField, type ChoiceField, type Field, type FileKind, type FormDocument, type Option } from "@/lib/forms/schema";
 
 import { EntityImport } from "./EntityImport";
+import { FileNamingSettings } from "./FileNaming";
 import { FIELD_ICONS } from "./fieldIcons";
 import { LogicEditor } from "./LogicEditor";
 
@@ -66,7 +67,7 @@ function OptionsAsText({ field, onChange }: { field: ChoiceField; onChange: (opt
   return <Textarea label="Edit options as text" hint="One option per line. Paste a long list here." rows={6} value={text} onChange={(event) => setText(event.target.value)} onBlur={commit} />;
 }
 
-export function FieldSettings({ field, onChange }: { field: Field; onChange: Patch }) {
+export function FieldSettings({ field, onChange, doc }: { field: Field; onChange: Patch; doc: FormDocument }) {
   switch (field.type) {
     case "short_text":
     case "long_text":
@@ -186,6 +187,7 @@ export function FieldSettings({ field, onChange }: { field: Field; onChange: Pat
               ))}
             </div>
           </fieldset>
+          <FileNamingSettings field={field} doc={doc} onChange={onChange} />
         </>
       );
     case "choice_grid":
@@ -258,7 +260,7 @@ export function Inspector({ field, onChange, questionCount, pageCount, doc }: { 
         </div>
       </div>
       <div className="flex flex-col gap-4">
-        <FieldSettings field={field} onChange={onChange} />
+        <FieldSettings field={field} onChange={onChange} doc={doc} />
       </div>
       <div className="flex flex-col gap-3 border-t border-border pt-5">
         <h3 className="ae-label-sm text-text-muted uppercase">Logic</h3>

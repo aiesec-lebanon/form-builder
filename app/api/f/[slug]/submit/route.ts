@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { deliverToPrimary, deliverToSecondaries } from "@/lib/destinations/deliver";
 import { baseUrl } from "@/lib/env";
 import { availability } from "@/lib/forms/availability";
-import { validateAnswers, type FileAnswer } from "@/lib/forms/fields";
+import { validateAnswers } from "@/lib/forms/fields";
 import { buildPayload } from "@/lib/forms/payload";
 import { visibleFields } from "@/lib/forms/logic";
 import { verifyRenderToken } from "@/lib/forms/render-token";
@@ -17,7 +17,7 @@ import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { markFilesSubmitted, resolveUploadedFiles } from "@/lib/uploads";
+import { finalizeUploads, plannedUploadNames, resolveUploadedFiles } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +102,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const values = { ...validation.values };
   const fileFields = fields.filter((field) => field.type === "file_upload" && values[field.id]);
-  const uploadedFileIds = fileFields.flatMap((field) => ((values[field.id] as FileAnswer[] | null) ?? []).map((file) => file.fileId));
+  // Names for the uploads (from the owner's format) use the answers as sent, before files resolve to links.
+  const uploads = plannedUploadNames(doc, validation.values);
   if (fileFields.length > 0) {
     const files = await resolveUploadedFiles({ formId: form.id, responseId: body.responseId, fields: fileFields, values });
     if (!files.ok) {
@@ -131,8 +132,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   await db.form.update({ where: { id: form.id }, data: { responseCount: { increment: 1 }, lastResponseAt: new Date() } }).catch((error) => logger.warn("submit.count_failed", { formId: form.id, error }));
   if (outcome.secondaries.length > 0) after(() => deliverToSecondaries(outcome.secondaries, context));
-  // Sent: these uploads are part of a response now, so the abandoned-upload cleanup leaves them alone.
-  if (uploadedFileIds.length > 0) after(() => markFilesSubmitted(form.id, uploadedFileIds));
+  // Sent: rename the uploads if the owner set a format, and keep the abandoned-upload cleanup away from them.
+  if (uploads.length > 0) after(() => finalizeUploads(form.id, uploads));
 
   logger.info("submit.accepted", { formId: form.id, ms: Date.now() - started });
   return jsonOk({ responseId: body.responseId });

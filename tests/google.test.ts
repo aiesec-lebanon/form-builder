@@ -15,8 +15,8 @@ import {
   headerWidth,
   listFolderFiles,
   moveToFolder,
-  setFileProperties,
   sheetTitleById,
+  updateFile,
   trashFile,
   startResumableUpload,
   writeHeaderRow,
@@ -222,7 +222,10 @@ describe("Sheets and Drive client", () => {
     expect(await sheetTitleById("tok", "s1", 7)).toBeNull();
     expect(await createFolder("tok", "Uploads")).toEqual({ id: "folder", webViewLink: "https://drive/folder" });
     expect(await getFile("tok", "file")).toMatchObject({ name: "cv.pdf" });
-    await expect(setFileProperties("tok", "file", { responseId: "r1" })).resolves.toBeUndefined();
+    await expect(updateFile("tok", "file", { name: "Lina_1.pdf", appProperties: { submitted: "1" } })).resolves.toBeUndefined();
+    const [url, init] = vi.mocked(fetch).mock.calls.at(-1)!;
+    expect(String(url)).toContain("/files/file?");
+    expect(init).toMatchObject({ method: "PATCH", body: JSON.stringify({ name: "Lina_1.pdf", appProperties: { submitted: "1" } }) });
   });
 
   it("raises readable errors and knows which to retry", async () => {

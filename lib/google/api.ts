@@ -151,8 +151,9 @@ export async function getFile(token: string, fileId: string): Promise<DriveFile>
   return call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id,name,size,mimeType,parents,webViewLink,appProperties,trashed`);
 }
 
-export async function setFileProperties(token: string, fileId: string, appProperties: Record<string, string>): Promise<void> {
-  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id`, { method: "PATCH", body: JSON.stringify({ appProperties }) });
+/** Renames a file and/or sets its app properties in one call. */
+export async function updateFile(token: string, fileId: string, patch: { name?: string; appProperties?: Record<string, string> }): Promise<void> {
+  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?fields=id`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 /**

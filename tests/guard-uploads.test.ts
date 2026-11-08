@@ -22,11 +22,11 @@ vi.mock("undici", () => ({
 
 const store = vi.hoisted(() => ({ loadDestinations: vi.fn() }));
 vi.mock("@/lib/destinations/store", () => store);
-const google = vi.hoisted(() => ({ getFile: vi.fn(), googleAccessToken: vi.fn(), setFileProperties: vi.fn(), listFolderFiles: vi.fn(), trashFile: vi.fn() }));
+const google = vi.hoisted(() => ({ getFile: vi.fn(), googleAccessToken: vi.fn(), updateFile: vi.fn(), listFolderFiles: vi.fn(), trashFile: vi.fn() }));
 vi.mock("@/lib/google/api", async (original) => ({
   ...(await original<typeof import("@/lib/google/api")>()),
   getFile: google.getFile,
-  setFileProperties: google.setFileProperties,
+  updateFile: google.updateFile,
   listFolderFiles: google.listFolderFiles,
   trashFile: google.trashFile,
 }));
@@ -35,7 +35,8 @@ vi.mock("@/lib/db", () => ({ db }));
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: google.googleAccessToken }));
 
 const { assertPublicHttpsUrl, BlockedHostError, guardedFetch, resolvePublicHost } = await import("@/lib/net/guard");
-const { cleanOrphanedUploads, driveFileName, filesDestination, markFilesSubmitted, resolveUploadedFiles } = await import("@/lib/uploads");
+const { cleanOrphanedUploads, driveFileName, extensionOf, filesDestination, finalizeUploads, plannedUploadNames, resolveUploadedFiles } = await import("@/lib/uploads");
+const { blankDocument } = await import("@/lib/forms/templates");
 const { GoogleAuthError } = await import("@/lib/google/oauth");
 
 afterEach(() => {
@@ -105,9 +106,9 @@ describe("uploaded files", () => {
     ...patch,
   });
 
-  it("names files safely with the response prefix", () => {
-    expect(driveFileName("12345678-aaaa", "my/cv\u0007 final .pdf")).toBe("12345678 - my cv final .pdf");
-    expect(driveFileName("12345678-aaaa", "   ")).toBe("12345678 - upload");
+  it("uploads files under the person's own name, made safe", () => {
+    expect(driveFileName("my/cv\u0007 final .pdf")).toBe("my cv final .pdf");
+    expect(driveFileName("   ")).toBe("upload");
   });
 
   it("finds the form's Drive folder", async () => {
@@ -149,19 +150,23 @@ describe("abandoned uploads", () => {
   const now = Date.parse("2026-11-20T00:00:00Z");
   const file = (id: string, ageDays: number, appProperties: Record<string, string> | undefined) => ({ id, createdTime: new Date(now - ageDays * day).toISOString(), appProperties });
 
-  it("marks a sent response's files, and never throws", async () => {
-    await markFilesSubmitted("form-1", []);
+  it("renames and marks a sent response's files, and never throws", async () => {
+    await finalizeUploads("form-1", []);
     expect(store.loadDestinations).not.toHaveBeenCalled();
     store.loadDestinations.mockResolvedValueOnce([drive]);
     google.googleAccessToken.mockResolvedValueOnce("tok");
-    google.setFileProperties.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("gone"));
-    await markFilesSubmitted("form-1", ["file-a", "file-b"]);
-    expect(google.setFileProperties).toHaveBeenCalledWith("tok", "file-a", { submitted: "1" });
+    google.updateFile.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("gone"));
+    await finalizeUploads("form-1", [
+      { fileId: "file-a", name: "Lina_1.pdf" },
+      { fileId: "file-b", name: null },
+    ]);
+    expect(google.updateFile).toHaveBeenCalledWith("tok", "file-a", { name: "Lina_1.pdf", appProperties: { submitted: "1" } });
+    expect(google.updateFile).toHaveBeenCalledWith("tok", "file-b", { appProperties: { submitted: "1" } });
     store.loadDestinations.mockResolvedValueOnce([]);
-    await markFilesSubmitted("form-1", ["file-a"]);
+    await finalizeUploads("form-1", [{ fileId: "file-a", name: null }]);
     store.loadDestinations.mockResolvedValueOnce([drive]);
     google.googleAccessToken.mockRejectedValueOnce(new Error("revoked"));
-    await expect(markFilesSubmitted("form-1", ["file-a"])).resolves.toBeUndefined();
+    await expect(finalizeUploads("form-1", [{ fileId: "file-a", name: null }])).resolves.toBeUndefined();
   });
 
   it("trashes only our week-old files that never became part of a response", async () => {
@@ -183,5 +188,51 @@ describe("abandoned uploads", () => {
     google.trashFile.mockResolvedValue(undefined);
     expect(await cleanOrphanedUploads(now)).toEqual({ folders: 2, trashed: 2, failedFolders: 1 });
     expect(google.trashFile.mock.calls.map((call) => call[1])).toEqual(["old-orphan", "old-orphan-2"]);
+  });
+});
+
+describe("upload naming", () => {
+  const name = { ...createField("short_text"), id: "f_name0001", label: "Full name" };
+  const lc = { ...createField("dropdown"), id: "f_lc000001", label: "LC", options: [{ id: "o_beirut1", label: "Beirut" }] };
+  const notes = { ...createField("statement"), id: "f_note0001" };
+  const cv = { ...createField("file_upload"), id: "f_cv000001", maxFiles: 3 };
+  const docWith = (naming: unknown, fields: unknown[] = [name, lc, notes, cv]) => {
+    const doc = blankDocument("Recruitment");
+    doc.pages[0].fields = fields.map((field) => (field === cv ? { ...cv, naming } : field)) as never;
+    return doc;
+  };
+  const files = [
+    { fileId: "file-a", name: "My CV.PDF", size: 1 },
+    { fileId: "file-b", name: "portfolio", size: 1 },
+  ];
+
+  it("keeps original names when no format is set", () => {
+    expect(plannedUploadNames(docWith(null), { [name.id]: "Lina", [cv.id]: files as never })).toEqual([
+      { fileId: "file-a", name: null },
+      { fileId: "file-b", name: null },
+    ]);
+  });
+
+  it("builds names from earlier answers, a separator and a number", () => {
+    const values = { [name.id]: "Lina / Haddad", [lc.id]: { optionIds: ["o_beirut1"], other: null }, [cv.id]: files as never };
+    expect(plannedUploadNames(docWith({ fieldIds: [name.id, lc.id], separator: "_", index: true }), values)).toEqual([
+      { fileId: "file-a", name: "Lina Haddad_Beirut_1.pdf" },
+      { fileId: "file-b", name: "Lina Haddad_Beirut_2" },
+    ]);
+    expect(plannedUploadNames(docWith({ fieldIds: [name.id], separator: "-", index: false }), values)[0]).toEqual({ fileId: "file-a", name: "Lina Haddad.pdf" });
+  });
+
+  it("skips empty, missing and non-answer questions, and falls back to the original name", () => {
+    const naming = { fieldIds: [name.id, "f_deleted1", notes.id, cv.id, lc.id], separator: " ", index: true };
+    expect(plannedUploadNames(docWith(naming), { [name.id]: null, [lc.id]: { optionIds: ["o_beirut1"], other: null }, [cv.id]: files as never })[0]).toEqual({ fileId: "file-a", name: "Beirut 1.pdf" });
+    expect(plannedUploadNames(docWith({ fieldIds: [name.id], separator: "_", index: true }), { [cv.id]: files as never })[0]).toEqual({ fileId: "file-a", name: null });
+    expect(plannedUploadNames(docWith({ fieldIds: [name.id], separator: "_", index: true }), { [cv.id]: null })).toEqual([]);
+  });
+
+  it("reads extensions conservatively", () => {
+    expect(extensionOf("cv.final.PDF")).toBe(".pdf");
+    expect(extensionOf("archive.tar.gz ")).toBe(".gz");
+    expect(extensionOf("README")).toBe("");
+    expect(extensionOf("weird.not-an-ext")).toBe("");
   });
 });

@@ -29,6 +29,8 @@ export type ThemeMode = (typeof THEME_MODES)[number];
 export const FORM_STYLES = ["calm", "warm", "bold", "playful"] as const;
 export type FormStyle = (typeof FORM_STYLES)[number];
 
+export const FILE_NAME_SEPARATORS = ["_", "-", " "] as const;
+
 export const FILE_KINDS = ["image", "video", "audio", "pdf", "document", "spreadsheet", "presentation", "archive"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
@@ -131,7 +133,17 @@ const fileUpload = z.object({
   maxSizeMb: z.number().int().min(1).max(100).default(10),
   /** Empty means any file type. */
   accept: z.array(z.enum(FILE_KINDS)).max(FILE_KINDS.length).default([]),
+  /** Renames uploads once the response is sent, e.g. "Lina Haddad_1.pdf". Null keeps the original name. */
+  naming: z
+    .object({
+      fieldIds: z.array(z.string().max(32)).min(1).max(3),
+      separator: z.enum(FILE_NAME_SEPARATORS).default("_"),
+      index: z.boolean().default(true),
+    })
+    .nullable()
+    .default(null),
 });
+export type FileNaming = NonNullable<z.infer<typeof fileUpload>["naming"]>;
 const consent = z.object({ ...base, type: z.literal("consent"), checkboxLabel: z.string().max(LIMITS.label).default("I agree") });
 const statement = z.object({ ...base, type: z.literal("statement") });
 
