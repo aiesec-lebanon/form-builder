@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, lint, test (80% coverage), build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders so the build and Prisma generate run without real credentials.
+      # Nothing here connects to a real service; unit tests mock every network call.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      SESSION_SECRET: ci-session-secret-0123456789-abcdefghijklmnop
+      ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
+      CRON_SECRET: ci-cron-secret-0123
+      NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      AIESEC_AUTH_URL: https://auth.example.test/oauth
+      AIESEC_CLIENT_ID: ci-client-id
+      AIESEC_CLIENT_SECRET: ci-client-secret
+      AIESEC_REDIRECT_URI: http://localhost:3000/api/auth/callback
+      GIS_GRAPHQL_URL: https://gis.example.test/graphql
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests with coverage (fails under 80%)
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+      - name: Build
+        run: npm run build
