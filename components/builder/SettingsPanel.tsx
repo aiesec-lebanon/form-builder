@@ -34,7 +34,7 @@ function RedirectSetting({ value, onChange }: { value: string | null; onChange: 
   const invalid = text.trim() !== "" && !isHttps(text.trim());
   return (
     <TextField
-      label="After submitting, go to this page"
+      label="Page to open after sending"
       type="url"
       inputMode="url"
       placeholder="https://aiesec.org/thank-you"
@@ -122,7 +122,7 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
 
       <AccessSettings access={settings.access} onChange={(patch) => onSettings({ access: { ...settings.access, ...patch } })} />
 
-      <Section title="After someone responds" description="What respondents see once their answers are sent.">
+      <Section title="After someone responds" description="What people see after they send their answers.">
         <TextField label="Confirmation title" value={settings.confirmationTitle} maxLength={200} onChange={(event) => onSettings({ confirmationTitle: event.target.value })} />
         <Textarea
           label="Confirmation message"
@@ -134,7 +134,7 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
         />
         <RedirectSetting value={settings.redirectUrl} onChange={(redirectUrl) => onSettings({ redirectUrl })} />
         <Switch
-          label="Let people submit another response"
+          label="Let people send another response"
           hint={settings.access.mode === "aiesec" && settings.access.onePerPerson ? "Off while “One response per person” is on." : undefined}
           disabled={settings.access.mode === "aiesec" && settings.access.onePerPerson}
           checked={settings.allowAnotherResponse && !(settings.access.mode === "aiesec" && settings.access.onePerPerson)}
@@ -144,7 +144,7 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
 
       <Section title="Form behaviour">
         <TextField
-          label="Submit button text"
+          label="Send button text"
           hint="Say what happens, like “Send application”."
           value={settings.submitLabel}
           maxLength={40}

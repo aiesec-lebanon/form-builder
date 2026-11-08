@@ -3,11 +3,11 @@ import { Database, FileSpreadsheet, FolderOpen, Webhook, type LucideIcon } from 
 import type { DestinationType } from "@/lib/destinations/types";
 
 export const DESTINATION_META: Record<DestinationType, { name: string; icon: LucideIcon; blurb: string }> = {
-  google_sheets: { name: "Google Sheets", icon: FileSpreadsheet, blurb: "We create a Sheet in your Drive. Each response is a new row." },
+  google_sheets: { name: "Google Sheets", icon: FileSpreadsheet, blurb: "Each response becomes a row in a Google Sheet: a new one we create, or one you already have." },
   webhook: { name: "Webhook", icon: Webhook, blurb: "Signed JSON to any URL: Zapier, Make, n8n, Apps Script or your server." },
-  supabase: { name: "Supabase", icon: Database, blurb: "Insert each response into a table in your own Supabase project." },
-  postgres: { name: "PostgreSQL", icon: Database, blurb: "Insert into your own Postgres database (Neon, RDS and others)." },
-  google_drive: { name: "Google Drive", icon: FolderOpen, blurb: "Uploaded files go to a folder in your Drive." },
+  supabase: { name: "Supabase", icon: Database, blurb: "Each response becomes a row in a table in your own Supabase project." },
+  postgres: { name: "PostgreSQL", icon: Database, blurb: "Each response becomes a row in your own PostgreSQL database (Neon, RDS and others)." },
+  google_drive: { name: "Google Drive", icon: FolderOpen, blurb: "Uploaded files go to your form's folder in Google Drive." },
 };
 
 export type GoogleAccount = { id: string; email: string; /** The account's AIESEC Forms folder, once made. */ rootFolderId: string | null };

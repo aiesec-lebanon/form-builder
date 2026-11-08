@@ -154,7 +154,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           <p className="ae-body-sm text-text-muted">{meta.blurb}</p>
           {(type === "webhook" || type === "supabase" || type === "postgres") && <RequiredLegend />}
           {error && (
-            <Alert tone="danger" title="That didn't work" live>
+            <Alert tone="danger" title="Not connected yet" live>
               {error}
             </Alert>
           )}
@@ -240,7 +240,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           )}
 
           {type === "webhook" && (
-            <TextField label={requiredLabel("Webhook URL")} required type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Must start with https://. We send a POST with JSON for every response." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
+            <TextField label={requiredLabel("Webhook URL")} required type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Use an https:// address. Each response arrives as a signed JSON POST." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
           )}
 
           {type === "supabase" && (

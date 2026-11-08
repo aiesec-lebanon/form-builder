@@ -328,3 +328,14 @@ describe("slugs", () => {
     expect(slugProblem("admin")).toBe("That link is reserved. Try another.");
   });
 });
+
+describe("publish checks name questions like the builder", () => {
+  it("numbers questions without counting text blocks", () => {
+    const doc = blankDocument("Numbers");
+    const note = { ...createField("statement"), id: "f_note0001", label: "", description: "" };
+    const untitled = { ...createField("short_text"), id: "f_name0001", label: "" };
+    doc.pages[0].fields = [note, untitled];
+    const messages = publishProblems(doc, { hasPrimaryDestination: true, hasFileStorage: true }).map((problem) => problem.message);
+    expect(messages).toEqual(["A text block is empty: add text or remove it.", "Question 1: add a question title."]);
+  });
+});

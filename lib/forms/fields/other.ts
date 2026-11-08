@@ -83,7 +83,7 @@ export const linearScale: FieldDefinition<FieldOf<"linear_scale">> = {
 export const rating: FieldDefinition<FieldOf<"rating">> = {
   type: "rating",
   name: "Rating",
-  hint: "Stars out of 5",
+  hint: "A quick star rating",
   group: "scale",
   collectsAnswer: true,
   create: (id) => ({ id, type: "rating", label: "", description: "", required: false, visibleIf: null, max: 5 }),

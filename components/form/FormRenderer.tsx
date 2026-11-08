@@ -366,7 +366,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
             )}
             {(mode === "preview" || (doc.settings.allowAnotherResponse && !(doc.settings.access.mode === "aiesec" && doc.settings.access.onePerPerson))) && (
               <Button variant="secondary" onClick={startOver}>
-                Submit another response
+                Send another response
               </Button>
             )}
           </section>

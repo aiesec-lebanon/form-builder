@@ -1,5 +1,6 @@
 import { collectsAnswer } from "./fields";
 import { conditionProblem } from "./logic";
+import { questionNumbers } from "./numbering";
 import { allFields, isChoiceField, isGridField, type FormDocument } from "./schema";
 
 // Blocking checks before publishing (spec §8). Messages say how to fix.
@@ -19,10 +20,13 @@ export function publishProblems(doc: FormDocument, context: { hasPrimaryDestinat
   if (!doc.title.trim()) add({ id: "title", message: "Give your form a title.", tab: "questions" });
   if (!fields.some(collectsAnswer)) add({ id: "no-questions", message: "Add at least one question.", tab: "questions" });
 
-  fields.forEach((field, index) => {
-    const where = `Question ${index + 1}`;
+  const numbers = questionNumbers(fields);
+  const nameOf = (fieldId: string) => (numbers.has(fieldId) ? `Question ${numbers.get(fieldId)}` : "A text block");
+
+  fields.forEach((field) => {
+    const where = nameOf(field.id);
     if (field.type === "statement") {
-      if (!field.label.trim() && !field.description.trim()) add({ id: `empty-${field.id}`, message: `${where}: add text to this text block or remove it.`, tab: "questions", fieldId: field.id });
+      if (!field.label.trim() && !field.description.trim()) add({ id: `empty-${field.id}`, message: "A text block is empty: add text or remove it.", tab: "questions", fieldId: field.id });
       return;
     }
     if (!field.label.trim()) add({ id: `label-${field.id}`, message: `${where}: add a question title.`, tab: "questions", fieldId: field.id });
@@ -56,10 +60,10 @@ export function publishProblems(doc: FormDocument, context: { hasPrimaryDestinat
   });
 
   // Conditional logic must point at earlier questions and existing options.
-  fields.forEach((field, index) => {
+  fields.forEach((field) => {
     if (!field.visibleIf) return;
     const problem = conditionProblem(doc, field.visibleIf, { fieldId: field.id });
-    if (problem) add({ id: `logic-${field.id}`, message: `Question ${index + 1} ${problem}. Fix or remove its rule.`, tab: "questions", fieldId: field.id });
+    if (problem) add({ id: `logic-${field.id}`, message: `${nameOf(field.id)} ${problem}. Fix or remove its rule.`, tab: "questions", fieldId: field.id });
   });
   doc.pages.forEach((page, index) => {
     if (!page.visibleIf) return;
@@ -69,7 +73,7 @@ export function publishProblems(doc: FormDocument, context: { hasPrimaryDestinat
 
   if (!context.hasPrimaryDestination) add({ id: "destination", message: "Choose where responses should go.", tab: "connect" });
   if (fields.some((field) => field.type === "file_upload") && !context.hasFileStorage) {
-    add({ id: "file-storage", message: "File questions need Google Drive to store uploads. Connect it in Connect.", tab: "connect" });
+    add({ id: "file-storage", message: "File questions need Google Drive to store uploads. Connect it on the Connect tab.", tab: "connect" });
   }
   return problems;
 }
