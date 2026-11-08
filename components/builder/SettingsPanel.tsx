@@ -35,7 +35,6 @@ function RedirectSetting({ value, onChange }: { value: string | null; onChange: 
   return (
     <TextField
       label="After submitting, go to this page"
-      optional
       type="url"
       inputMode="url"
       placeholder="https://aiesec.org/thank-you"
@@ -127,7 +126,6 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
         <TextField label="Confirmation title" value={settings.confirmationTitle} maxLength={200} onChange={(event) => onSettings({ confirmationTitle: event.target.value })} />
         <Textarea
           label="Confirmation message"
-          optional
           rows={3}
           value={settings.confirmationMessage}
           maxLength={2000}

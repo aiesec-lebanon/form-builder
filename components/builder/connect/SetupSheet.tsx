@@ -7,6 +7,7 @@ import { Alert, Button, RadioGroup, TextField, useToast } from "@/components/aie
 import { addGoogleDrive, addGoogleSheet, addPostgres, addSupabase, addWebhook } from "@/actions/destinations";
 import { googlePickerSession, setGoogleFolderLocation } from "@/actions/google";
 import { CopyBlock } from "@/components/app/CopyBlock";
+import { RequiredLegend, requiredLabel } from "@/components/app/RequiredMark";
 import { POSTGRES_TABLE_SQL, SUPABASE_TABLE_SQL } from "@/lib/destinations/sql";
 import type { DestinationSummary, DestinationType } from "@/lib/destinations/types";
 
@@ -151,6 +152,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
       ) : (
         <form ref={formRef} id="setup-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <p className="ae-body-sm text-text-muted">{meta.blurb}</p>
+          {(type === "webhook" || type === "supabase" || type === "postgres") && <RequiredLegend />}
           {error && (
             <Alert tone="danger" title="That didn't work" live>
               {error}
@@ -238,17 +240,17 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           )}
 
           {type === "webhook" && (
-            <TextField label="Webhook URL" type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Must start with https://. We send a POST with JSON for every response." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
+            <TextField label={requiredLabel("Webhook URL")} required type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Must start with https://. We send a POST with JSON for every response." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
           )}
 
           {type === "supabase" && (
             <>
-              <TextField label="Project URL" type="url" placeholder="https://abcdefgh.supabase.co" value={values.projectUrl ?? ""} onChange={set("projectUrl")} error={fieldErrors.projectUrl} autoFocus />
+              <TextField label={requiredLabel("Project URL")} required type="url" placeholder="https://abcdefgh.supabase.co" value={values.projectUrl ?? ""} onChange={set("projectUrl")} error={fieldErrors.projectUrl} autoFocus />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label="Table" value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
-                <TextField label="Schema" value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
+                <TextField label={requiredLabel("Table")} required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
+                <TextField label={requiredLabel("Schema")} required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
               </div>
-              <TextField label="Secret key" type="password" autoComplete="off" hint="Project Settings → API Keys → secret key. Stored encrypted; never shown again." value={values.apiKey ?? ""} onChange={set("apiKey")} error={fieldErrors.apiKey} />
+              <TextField label={requiredLabel("Secret key")} required type="password" autoComplete="off" hint="Project Settings → API Keys → secret key. Stored encrypted; never shown again." value={values.apiKey ?? ""} onChange={set("apiKey")} error={fieldErrors.apiKey} />
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer ae-label">Create the table first (SQL editor)</summary>
                 <div className="pt-3">
@@ -261,7 +263,8 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           {type === "postgres" && (
             <>
               <TextField
-                label="Connection string"
+                label={requiredLabel("Connection string")}
+                required
                 type="password"
                 autoComplete="off"
                 placeholder="postgresql://user:password@host:5432/database"
@@ -272,8 +275,8 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
                 autoFocus
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label="Table" value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
-                <TextField label="Schema" value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
+                <TextField label={requiredLabel("Table")} required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
+                <TextField label={requiredLabel("Schema")} required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
               </div>
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer ae-label">Create the table first</summary>

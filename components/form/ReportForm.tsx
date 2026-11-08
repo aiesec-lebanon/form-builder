@@ -4,6 +4,7 @@ import { CircleCheck } from "lucide-react";
 import * as React from "react";
 
 import { Alert, Button, RadioGroup, TextField, Textarea } from "@/components/aiesec";
+import { RequiredLegend, requiredLabel } from "@/components/app/RequiredMark";
 import { REPORT_REASON_LABEL, REPORT_REASONS, type ReportReason } from "@/lib/forms/reports";
 
 /** "Does this form look suspicious?": the report itself. */
@@ -53,13 +54,14 @@ export function ReportForm({ slug }: { slug: string }) {
 
   return (
     <form noValidate onSubmit={submit} className="flex flex-col gap-6">
+      <RequiredLegend />
       {error && (
         <Alert tone="danger" title="Not sent yet" live>
           {error}
         </Alert>
       )}
       <RadioGroup
-        legend="What's wrong with this form?"
+        legend={requiredLabel("What's wrong with this form?")}
         name="reason"
         value={reason}
         onChange={(value) => {
@@ -70,8 +72,17 @@ export function ReportForm({ slug }: { slug: string }) {
         required
         options={REPORT_REASONS.map((value) => ({ value, label: REPORT_REASON_LABEL[value] }))}
       />
-      <Textarea label="Details" optional hint="What made you suspicious? Don't include passwords." rows={4} maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} />
-      <TextField label="Your email" optional type="email" inputMode="email" autoComplete="email" hint="Only if you'd like us to follow up." maxLength={254} value={contact} onChange={(event) => setContact(event.target.value)} />
+      <Textarea label="Details" hint="What made you suspicious? Don't include passwords." rows={4} maxLength={2000} value={details} onChange={(event) => setDetails(event.target.value)} />
+      <TextField
+        label="Your email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        hint="Only if you'd like us to follow up."
+        maxLength={254}
+        value={contact}
+        onChange={(event) => setContact(event.target.value)}
+      />
       {/* Honeypot for bots; people never see or reach it. */}
       <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
         <label>

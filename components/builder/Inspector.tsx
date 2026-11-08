@@ -24,7 +24,6 @@ function NumberSetting({ label, value, onChange, min, max, hint }: { label: stri
     <TextField
       label={label}
       hint={hint}
-      optional
       type="number"
       inputMode="decimal"
       min={min}
@@ -73,7 +72,7 @@ export function FieldSettings({ field, onChange, doc }: { field: Field; onChange
     case "long_text":
       return (
         <>
-          <TextField label="Placeholder" optional value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />
+          <TextField label="Placeholder" value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <NumberSetting label="Min characters" value={field.minLength} min={0} max={field.type === "long_text" ? LIMITS.longText : LIMITS.shortText} onChange={(minLength) => onChange({ minLength })} />
             <NumberSetting label="Max characters" value={field.maxLength} min={1} max={field.type === "long_text" ? LIMITS.longText : LIMITS.shortText} onChange={(maxLength) => onChange({ maxLength })} />
@@ -83,11 +82,11 @@ export function FieldSettings({ field, onChange, doc }: { field: Field; onChange
     case "email":
     case "phone":
     case "url":
-      return <TextField label="Placeholder" optional value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />;
+      return <TextField label="Placeholder" value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />;
     case "number":
       return (
         <>
-          <TextField label="Placeholder" optional value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />
+          <TextField label="Placeholder" value={field.placeholder} maxLength={200} onChange={(event) => onChange({ placeholder: event.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <NumberSetting label="Minimum" value={field.min} onChange={(min) => onChange({ min })} />
             <NumberSetting label="Maximum" value={field.max} onChange={(max) => onChange({ max })} />
@@ -98,8 +97,8 @@ export function FieldSettings({ field, onChange, doc }: { field: Field; onChange
     case "date":
       return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <TextField label="Earliest date" optional type="date" value={field.min ?? ""} onChange={(event) => onChange({ min: event.target.value || null })} />
-          <TextField label="Latest date" optional type="date" value={field.max ?? ""} onChange={(event) => onChange({ max: event.target.value || null })} />
+          <TextField label="Earliest date" type="date" value={field.min ?? ""} onChange={(event) => onChange({ min: event.target.value || null })} />
+          <TextField label="Latest date" type="date" value={field.max ?? ""} onChange={(event) => onChange({ max: event.target.value || null })} />
         </div>
       );
     case "single_choice":
@@ -140,8 +139,8 @@ export function FieldSettings({ field, onChange, doc }: { field: Field; onChange
               onChange={(value) => value && onChange({ max: Number(value) })}
             />
           </div>
-          <TextField label="Low end label" optional placeholder="Not likely" value={field.minLabel} maxLength={60} onChange={(event) => onChange({ minLabel: event.target.value })} />
-          <TextField label="High end label" optional placeholder="Very likely" value={field.maxLabel} maxLength={60} onChange={(event) => onChange({ maxLabel: event.target.value })} />
+          <TextField label="Low end label" placeholder="Not likely" value={field.minLabel} maxLength={60} onChange={(event) => onChange({ minLabel: event.target.value })} />
+          <TextField label="High end label" placeholder="Very likely" value={field.maxLabel} maxLength={60} onChange={(event) => onChange({ maxLabel: event.target.value })} />
         </>
       );
     case "rating":

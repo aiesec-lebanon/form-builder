@@ -99,7 +99,7 @@ export const FieldCard = React.memo(function FieldCard({ field, number, pageId, 
                 value={field.description}
                 onChange={(description) => update({ description })}
                 label="Description"
-                placeholder={isStatement ? "Text" : "Description (optional)"}
+                placeholder={isStatement ? "Text" : "Description"}
                 multiline
                 maxLength={2000}
                 className="ae-body-sm text-text-muted"

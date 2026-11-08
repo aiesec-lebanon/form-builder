@@ -27,3 +27,13 @@ export function RequiredLegend({ className }: { className?: string }) {
     </p>
   );
 }
+
+/** A design-system field label with the asterisk: `label={requiredLabel("Webhook URL")}` (pair it with `required` on the control). */
+export function requiredLabel(text: string) {
+  return (
+    <>
+      {text}
+      <RequiredMark />
+    </>
+  );
+}

@@ -60,10 +60,9 @@ export function ResponseRules({ formId, acceptingResponses, closesAt, responseLi
       </div>
       <Switch label="Accepting responses" hint="Turn off to close the form now." checked={acceptingResponses} disabled={pending} onChange={(event) => toggle(event.target.checked)} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="Stop accepting on" optional type="datetime-local" hint={`Your time zone: ${timeZone}`} value={closeInput} onChange={(event) => setCloseInput(event.target.value)} />
+        <TextField label="Stop accepting on" type="datetime-local" hint={`Your time zone: ${timeZone}`} value={closeInput} onChange={(event) => setCloseInput(event.target.value)} />
         <TextField
           label="Stop after this many responses"
-          optional
           type="number"
           inputMode="numeric"
           min={1}

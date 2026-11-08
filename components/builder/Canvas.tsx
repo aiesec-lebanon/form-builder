@@ -78,7 +78,7 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
             value={doc.description}
             onChange={(description) => dispatch({ type: "updateForm", patch: { description } })}
             label="Form description"
-            placeholder="Add a description (optional)"
+            placeholder="Add a description"
             multiline
             maxLength={4000}
             className="ae-body text-text-muted"
@@ -106,12 +106,12 @@ export function Canvas({ state, dispatch, onAddQuestion, onAddPage, onDuplicate,
                   </button>
                 </div>
                 <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 sm:px-6">
-                  <InlineText value={page.title} onChange={(title) => dispatch({ type: "updatePage", id: page.id, patch: { title } })} label={`Page ${pageIndex + 1} title`} placeholder="Page title (optional)" maxLength={300} className="ae-h4" />
+                  <InlineText value={page.title} onChange={(title) => dispatch({ type: "updatePage", id: page.id, patch: { title } })} label={`Page ${pageIndex + 1} title`} placeholder="Page title" maxLength={300} className="ae-h4" />
                   <InlineText
                     value={page.description}
                     onChange={(description) => dispatch({ type: "updatePage", id: page.id, patch: { description } })}
                     label={`Page ${pageIndex + 1} description`}
-                    placeholder="Page description (optional)"
+                    placeholder="Page description"
                     multiline
                     maxLength={2000}
                     className="ae-body-sm text-text-muted"
