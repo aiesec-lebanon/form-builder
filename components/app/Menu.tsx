@@ -22,6 +22,8 @@ export type MenuItem =
       disabled?: boolean;
       /** Makes it a menuitemradio with this checked state. */
       checked?: boolean;
+      /** The page you're on (links): marked for sight and screen readers. */
+      current?: boolean;
     }
   | { kind: "separator" }
   | { kind: "label"; content: React.ReactNode };
@@ -50,6 +52,8 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const menuId = React.useId();
+  // Opened by mouse or touch: no item is focused (so none looks selected). By keyboard: focus moves into the list.
+  const openedBy = React.useRef<"pointer" | "keyboard">("keyboard");
 
   const focusables = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"])') ?? []);
 
@@ -77,7 +81,8 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
   React.useLayoutEffect(() => {
     if (!open) return;
     place();
-    focusables()[0]?.focus();
+    if (openedBy.current === "pointer") menuRef.current?.focus();
+    else (focusables().find((item) => item.getAttribute("aria-current") === "page") ?? focusables()[0])?.focus();
     // Measure again once the menu has its real size.
     const frame = requestAnimationFrame(place);
     return () => cancelAnimationFrame(frame);
@@ -120,15 +125,16 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
   const onTriggerKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      openedBy.current = "keyboard";
       setOpen(true);
     }
   };
 
-  const itemClass = (tone?: "danger", disabled?: boolean) =>
+  const itemClass = (tone?: "danger", disabled?: boolean, current?: boolean) =>
     cx(
       "flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left ae-body-sm no-underline outline-none",
-      tone === "danger" ? "text-danger-text" : "text-text",
-      disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-fill focus:bg-fill",
+      tone === "danger" ? "text-danger-text" : current ? "font-bold text-primary-text" : "text-text",
+      disabled ? "cursor-not-allowed opacity-45" : tone === "danger" ? "cursor-pointer hover:bg-danger-soft focus:bg-danger-soft" : "cursor-pointer hover:bg-fill focus:bg-fill",
     );
 
   const menu = open ? (
@@ -140,7 +146,7 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
       tabIndex={-1}
       onKeyDown={onMenuKeyDown}
       style={{ position: "fixed", top: position?.top ?? -9999, left: position?.left ?? -9999, minWidth, zIndex: 1000 }}
-      className="flex flex-col gap-0.5 rounded-md border border-border bg-surface-raised p-1 shadow-md"
+      className="flex flex-col gap-0.5 rounded-md border border-border bg-surface-raised p-1 shadow-md outline-none"
     >
       {items.map((item, index) => {
         if (item.kind === "separator") return <div key={index} role="separator" className="my-1 h-px bg-border" />;
@@ -155,7 +161,7 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
         );
         if (item.href && !item.disabled) {
           return (
-            <NextLink key={index} href={item.href} role={role} aria-checked={item.checked} tabIndex={-1} className={itemClass(item.tone)} onClick={() => close(false)}>
+            <NextLink key={index} href={item.href} role={role} aria-checked={item.checked} aria-current={item.current ? "page" : undefined} tabIndex={-1} className={itemClass(item.tone, false, item.current)} onClick={() => close(false)}>
               {content}
             </NextLink>
           );
@@ -193,7 +199,11 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={triggerClassName ?? "ae-btn ae-btn--ghost ae-btn--icon"}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) => {
+          // detail is 0 when Enter or Space "clicked" the button.
+          openedBy.current = event.detail > 0 ? "pointer" : "keyboard";
+          setOpen((value) => !value);
+        }}
         onKeyDown={onTriggerKeyDown}
       >
         {trigger}

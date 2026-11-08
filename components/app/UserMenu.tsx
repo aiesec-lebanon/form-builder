@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, LogOut, Settings } from "lucide-react";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import { Avatar } from "@/components/aiesec";
@@ -14,6 +15,7 @@ type Props = {
 /** The account card: who's signed in, settings, admin activity and sign out. Opens below the header, aligned to the avatar. */
 export function UserMenu({ user }: Props) {
   const signOutRef = React.useRef<HTMLFormElement>(null);
+  const pathname = usePathname() ?? "";
   const role = [user.positionTitle, user.officeName].filter(Boolean).join(" · ");
 
   return (
@@ -41,10 +43,10 @@ export function UserMenu({ user }: Props) {
             ),
           },
           { kind: "separator" },
-          { label: "Settings", href: "/settings", icon: <Settings size={16} /> },
-          ...(user.isAdmin ? [{ label: "Admin activity", href: "/admin/activity", icon: <Activity size={16} /> }] : []),
+          { label: "Settings", href: "/settings", icon: <Settings size={16} />, current: pathname.startsWith("/settings") },
+          ...(user.isAdmin ? [{ label: "Admin activity", href: "/admin/activity", icon: <Activity size={16} />, current: pathname.startsWith("/admin") }] : []),
           { kind: "separator" },
-          { label: "Sign out", icon: <LogOut size={16} />, onSelect: () => signOutRef.current?.requestSubmit() },
+          { label: "Sign out", icon: <LogOut size={16} />, tone: "danger", onSelect: () => signOutRef.current?.requestSubmit() },
         ]}
       />
       <form ref={signOutRef} action="/api/auth/logout" method="post" hidden />
