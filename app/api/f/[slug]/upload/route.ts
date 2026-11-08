@@ -15,6 +15,7 @@ import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
+import { ensureQuestionFolder } from "@/lib/google/folders";
 import { driveFileName, filesDestination } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
@@ -67,8 +68,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const token = await googleAccessToken(storage.connectionId);
+    const folderId = await ensureQuestionFolder(token, {
+      destinationId: storage.destinationId,
+      formFolderId: storage.folderId,
+      known: storage.questionFolders[field.id],
+      formTitle: doc?.title ?? "",
+      question: { id: field.id, label: field.label },
+    });
     const uploadUrl = await startResumableUpload(token, {
-      folderId: storage.folderId,
+      folderId,
       name: driveFileName(body.responseId, body.name),
       mimeType: body.mimeType,
       size: body.size,

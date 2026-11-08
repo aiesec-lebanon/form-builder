@@ -17,6 +17,9 @@ const m = vi.hoisted(() => ({
   googleAccessToken: vi.fn(),
   createSpreadsheet: vi.fn(),
   createFolder: vi.fn(),
+  moveToFolder: vi.fn(),
+  formatSheet: vi.fn(),
+  ensureFormFolder: vi.fn(),
   tx: { destination: { delete: vi.fn(), findFirst: vi.fn(), update: vi.fn() } },
   db: {
     destination: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
@@ -32,7 +35,8 @@ vi.mock("@/lib/destinations/deliver", () => ({ testDestination: m.testDestinatio
 vi.mock("@/lib/destinations/store", () => ({ listSummaries: m.listSummaries, loadDestination: m.loadDestination, recordHealth: m.recordHealth }));
 vi.mock("@/lib/net/guard", async (original) => ({ ...(await original<typeof import("@/lib/net/guard")>()), assertPublicHttpsUrl: m.assertPublicHttpsUrl }));
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: m.googleAccessToken }));
-vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), createSpreadsheet: m.createSpreadsheet, createFolder: m.createFolder }));
+vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), createSpreadsheet: m.createSpreadsheet, createFolder: m.createFolder, moveToFolder: m.moveToFolder, formatSheet: m.formatSheet }));
+vi.mock("@/lib/google/folders", async (original) => ({ ...(await original<typeof import("@/lib/google/folders")>()), ensureFormFolder: m.ensureFormFolder }));
 vi.mock("@/lib/db", () => ({ db: m.db }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
@@ -53,6 +57,8 @@ beforeEach(() => {
   m.listSummaries.mockResolvedValue(summaries);
   m.assertPublicHttpsUrl.mockImplementation(async (raw: string) => new URL(raw));
   m.testDestination.mockResolvedValue({ ok: true });
+  m.formatSheet.mockResolvedValue(undefined);
+  m.moveToFolder.mockResolvedValue(undefined);
   m.db.$transaction.mockImplementation(async (work: unknown) => (typeof work === "function" ? work(m.tx) : work));
   vi.stubEnv("GOOGLE_CLIENT_ID", "id");
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "secret");
@@ -158,13 +164,19 @@ describe("databases", () => {
 });
 
 describe("Google destinations", () => {
-  it("creates a response Sheet with the form's columns", async () => {
+  it("creates the response Sheet inside the form's folder, formatted", async () => {
     m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
     m.googleAccessToken.mockResolvedValue("tok");
+    m.ensureFormFolder.mockResolvedValue({ id: "form-folder-1", url: "https://drive/f", name: "Recruitment", takenName: null });
     m.createSpreadsheet.mockResolvedValueOnce({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheetId: 0, sheetTitle: "Responses" });
-    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: true });
-    expect(m.createSpreadsheet.mock.calls[0][1]).toBe("Recruitment — Responses");
-    expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({ type: "google_sheets", googleConnectionId: "c1", config: { spreadsheetId: "s1", columns: expect.any(Array) } });
+    m.formatSheet.mockRejectedValueOnce(new Error("cosmetic"));
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: true, data: { notice: null } });
+    expect(m.createSpreadsheet.mock.calls[0][1]).toBe("Recruitment Responses");
+    expect(m.moveToFolder).toHaveBeenCalledWith("tok", "s1", "form-folder-1");
+    expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({ type: "google_sheets", googleConnectionId: "c1", config: { spreadsheetId: "s1", formFolderId: "form-folder-1", columns: expect.any(Array) } });
+    m.ensureFormFolder.mockResolvedValueOnce({ id: "form-folder-2", url: "https://drive/f2", name: "Recruitment (2)", takenName: "Recruitment" });
+    m.createSpreadsheet.mockResolvedValueOnce({ spreadsheetId: "s2", spreadsheetUrl: "https://docs/s2", sheetId: 0, sheetTitle: "Responses" });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: true, data: { notice: expect.stringContaining('"Recruitment (2)"') } });
     m.createSpreadsheet.mockRejectedValueOnce(new GoogleApiError(403, "", "no"));
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: expect.stringContaining("refused") });
     m.getFormAccess.mockResolvedValueOnce({ form: { id: FORM_ID, draft: {} }, role: "owner" });
@@ -173,13 +185,13 @@ describe("Google destinations", () => {
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: "Connect your Google account first." });
   });
 
-  it("creates one Drive uploads folder per form", async () => {
+  it("keeps uploads in the form's folder, one subfolder per question", async () => {
     m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
     m.googleAccessToken.mockResolvedValue("tok");
-    m.createFolder.mockResolvedValueOnce({ id: "folder-0001", webViewLink: "https://drive/f" });
+    m.ensureFormFolder.mockResolvedValueOnce({ id: "folder-0001", url: "https://drive/f", name: "Recruitment", takenName: null });
     expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: true });
-    expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({ type: "google_drive", role: "files", config: { folderId: "folder-0001" } });
-    m.createFolder.mockRejectedValueOnce(new GoogleApiError(500, "", "busy"));
+    expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({ type: "google_drive", role: "files", config: { folderId: "folder-0001", formFolderId: "folder-0001", questionFolders: {} } });
+    m.ensureFormFolder.mockRejectedValueOnce(new GoogleApiError(500, "", "busy"));
     expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: expect.stringContaining("busy") });
     m.db.destination.count.mockResolvedValueOnce(1);
     expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: expect.stringContaining("already") });

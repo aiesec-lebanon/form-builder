@@ -19,7 +19,8 @@ import { newSigningSecret } from "@/lib/destinations/webhook";
 import { googleConfigured } from "@/lib/env";
 import { getFormAccess } from "@/lib/forms/access";
 import { parseDocument } from "@/lib/forms/schema";
-import { createFolder, createSpreadsheet } from "@/lib/google/api";
+import { createSpreadsheet, formatSheet, moveToFolder } from "@/lib/google/api";
+import { ensureFormFolder, folderNotice } from "@/lib/google/folders";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
 import { assertPublicHttpsUrl, BlockedHostError } from "@/lib/net/guard";
@@ -204,7 +205,7 @@ async function usableConnection(userId: string, connectionId: string) {
   return connection;
 }
 
-export async function addGoogleSheet(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations>> {
+export async function addGoogleSheet(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
   if (!googleConfigured()) return fail("Google isn't set up on this server yet.");
@@ -214,11 +215,16 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
   if (!doc) return fail("This form couldn't be read.");
   try {
     const token = await googleAccessToken(connection.id);
-    const title = `${doc.title.trim() || "Untitled form"} — Responses`;
-    const sheet = await createSpreadsheet(token, title, initialHeaderRow(doc));
-    const config = { ...sheet, columns: syncColumns([], doc).columns };
+    const formName = doc.title.trim() || "Untitled form";
+    // AIESEC Forms / <form name> / <form name> Responses
+    const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: formName });
+    const headers = initialHeaderRow(doc);
+    const sheet = await createSpreadsheet(token, `${formName} Responses`, headers);
+    await moveToFolder(token, sheet.spreadsheetId, folder.id);
+    await formatSheet(token, sheet.spreadsheetId, sheet.sheetId, headers).catch((error) => logger.warn("destination.sheet_format_failed", { formId, error }));
+    const config = { ...sheet, formFolderId: folder.id, columns: syncColumns([], doc).columns };
     const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_sheets", name: "Google Sheets", config, googleConnectionId: connection.id });
-    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets") });
+    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets"), notice: folderNotice(folder) });
   } catch (error) {
     logger.warn("destination.sheet_create_failed", { formId, error });
     const result = classifyError(error);
@@ -226,7 +232,7 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
   }
 }
 
-export async function addGoogleDrive(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations>> {
+export async function addGoogleDrive(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
   if (!googleConfigured()) return fail("Google isn't set up on this server yet.");
@@ -236,18 +242,19 @@ export async function addGoogleDrive(formId: string, input: { connectionId: stri
   const doc = parseDocument(auth.form.draft);
   try {
     const token = await googleAccessToken(connection.id);
-    const folder = await createFolder(token, `${doc?.title.trim() || "Untitled form"} — Uploads`);
+    // AIESEC Forms / <form name>; each file question gets "<form name> <question> Uploads" on its first upload.
+    const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: doc?.title.trim() || "Untitled form" });
     const destination = await insertDestination({
       formId,
       userId: auth.user.id,
       type: "google_drive",
       role: "files",
       name: "Google Drive",
-      config: { folderId: folder.id, folderUrl: folder.webViewLink },
+      config: { folderId: folder.id, folderUrl: folder.url, formFolderId: folder.id, questionFolders: {} },
       googleConnectionId: connection.id,
     });
     await recordHealth(destination.id, { ok: true });
-    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_drive") });
+    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_drive"), notice: folderNotice(folder) });
   } catch (error) {
     logger.warn("destination.folder_create_failed", { formId, error });
     const result = classifyError(error);

@@ -31,10 +31,18 @@ export const sheetsConfig = z.object({
   sheetId: z.number().int(),
   sheetTitle: z.string().min(1),
   columns: z.array(sheetColumn).default([]),
+  /** The form's folder in AIESEC Forms (absent for Sheets made before folders). */
+  formFolderId: z.string().optional(),
 });
 export type SheetsConfig = z.infer<typeof sheetsConfig>;
 
-export const driveConfig = z.object({ folderId: z.string().min(10), folderUrl: z.string().url() });
+/** folderId: the form's folder (or, for older connections, its uploads folder). Uploads go into one subfolder per file question. */
+export const driveConfig = z.object({
+  folderId: z.string().min(10),
+  folderUrl: z.string().url(),
+  formFolderId: z.string().optional(),
+  questionFolders: z.record(z.string(), z.string()).default({}),
+});
 export type DriveConfig = z.infer<typeof driveConfig>;
 
 /** A destination row with its secrets decrypted. Server-only in practice. */

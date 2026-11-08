@@ -116,13 +116,13 @@ describe("uploaded files", () => {
     store.loadDestinations.mockResolvedValueOnce([{ googleConnectionId: "c1", config: { nope: true } }]);
     expect(await filesDestination("form-1")).toBeNull();
     store.loadDestinations.mockResolvedValueOnce([{ googleConnectionId: "c1", config: { folderId: "folder-0001", folderUrl: "https://drive.google.com/drive/folders/folder-0001" } }]);
-    expect(await filesDestination("form-1")).toEqual({ connectionId: "c1", folderId: "folder-0001" });
+    expect(await filesDestination("form-1")).toEqual({ destinationId: undefined, connectionId: "c1", folderId: "folder-0001", questionFolders: {} });
   });
 
   it("swaps the browser's claim for Drive's own metadata", async () => {
-    store.loadDestinations.mockResolvedValue([{ googleConnectionId: "c1", config: { folderId: "folder-0001", folderUrl: "https://drive.google.com/drive/folders/folder-0001" } }]);
+    store.loadDestinations.mockResolvedValue([{ googleConnectionId: "c1", config: { folderId: "folder-0001", folderUrl: "https://drive.google.com/drive/folders/folder-0001", questionFolders: { [field.id]: "question-folder" } } }]);
     google.googleAccessToken.mockResolvedValue("tok");
-    google.getFile.mockResolvedValueOnce(meta());
+    google.getFile.mockResolvedValueOnce(meta({ parents: ["question-folder"] }));
     expect(await resolveUploadedFiles(input([{ fileId: "file-1", name: "cv.pdf", size: 1 }]))).toEqual({
       ok: true,
       values: { [field.id]: [{ name: "cv.pdf", url: "https://drive.google.com/file/d/file-1/view", size: 2048, mimeType: "application/pdf" }] },

@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   releaseResponse: vi.fn(),
   googleAccessToken: vi.fn(),
   startResumableUpload: vi.fn(),
+  ensureQuestionFolder: vi.fn(),
   getCurrentUser: vi.fn(),
   exchangeGoogleCode: vi.fn(),
   exchangeCode: vi.fn(),
@@ -51,6 +52,7 @@ vi.mock("@/lib/forms/respondents", async (original) => ({
 }));
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: mocks.googleAccessToken }));
 vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), startResumableUpload: mocks.startResumableUpload }));
+vi.mock("@/lib/google/folders", () => ({ ensureQuestionFolder: mocks.ensureQuestionFolder }));
 vi.mock("@/lib/auth/current-user", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/lib/google/oauth", async (original) => ({ ...(await original<typeof import("@/lib/google/oauth")>()), exchangeGoogleCode: mocks.exchangeGoogleCode }));
 vi.mock("@/lib/auth/oauth", async (original) => ({ ...(await original<typeof import("@/lib/auth/oauth")>()), exchangeCode: mocks.exchangeCode }));
@@ -205,12 +207,14 @@ describe("upload endpoint", () => {
   const start = (patch: Record<string, unknown> = {}) => post("/api/f/recruitment/upload", { fieldId: cv.id, responseId: RESPONSE_ID, name: "cv.pdf", size: 1000, mimeType: "application/pdf", ...patch });
 
   it("opens a Drive upload for an allowed file", async () => {
-    mocks.filesDestination.mockResolvedValueOnce({ connectionId: "c1", folderId: "folder-0001" });
+    mocks.filesDestination.mockResolvedValueOnce({ destinationId: "d1", connectionId: "c1", folderId: "folder-0001", questionFolders: {} });
     mocks.googleAccessToken.mockResolvedValueOnce("tok");
+    mocks.ensureQuestionFolder.mockResolvedValueOnce("question-folder");
     mocks.startResumableUpload.mockResolvedValueOnce("https://upload/session");
     const response = await upload.POST(start(), params);
     expect(await response.json()).toEqual({ ok: true, uploadUrl: "https://upload/session" });
-    expect(mocks.startResumableUpload.mock.calls[0][1]).toMatchObject({ folderId: "folder-0001", origin: ORIGIN, appProperties: { formId: FORM_ID, responseId: RESPONSE_ID, fieldId: cv.id } });
+    expect(mocks.ensureQuestionFolder.mock.calls[0][1]).toMatchObject({ destinationId: "d1", formFolderId: "folder-0001", formTitle: "Recruitment", question: { id: cv.id, label: "CV" } });
+    expect(mocks.startResumableUpload.mock.calls[0][1]).toMatchObject({ folderId: "question-folder", origin: ORIGIN, appProperties: { formId: FORM_ID, responseId: RESPONSE_ID, fieldId: cv.id } });
   });
 
   it("refuses what doesn't belong", async () => {
@@ -229,7 +233,7 @@ describe("upload endpoint", () => {
     expect((await upload.POST(start(), params)).status).toBe(429);
     mocks.filesDestination.mockResolvedValueOnce(null);
     expect((await upload.POST(start(), params)).status).toBe(503);
-    mocks.filesDestination.mockResolvedValueOnce({ connectionId: "c1", folderId: "folder-0001" });
+    mocks.filesDestination.mockResolvedValueOnce({ destinationId: "d1", connectionId: "c1", folderId: "folder-0001", questionFolders: {} });
     mocks.googleAccessToken.mockRejectedValueOnce(new GoogleAuthError("revoked", "gone"));
     expect((await upload.POST(start(), params)).status).toBe(502);
   });

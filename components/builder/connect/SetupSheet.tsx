@@ -52,7 +52,8 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
       onDestinations(result.data.destinations);
       const keepOpen = after?.(result.data) ?? false;
       if (!keepOpen) {
-        toast.show({ title: `${meta.name} connected` });
+        const notice = typeof result.data.notice === "string" ? result.data.notice : undefined;
+        toast.show({ title: `${meta.name} connected`, description: notice, tone: notice ? "warning" : undefined });
         onClose();
       }
     });

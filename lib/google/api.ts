@@ -70,10 +70,14 @@ export async function writeHeaderRow(token: string, spreadsheetId: string, sheet
   await call(token, `${SHEETS}/${spreadsheetId}/values/${range}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: [headers] }) });
 }
 
-/** RAW input: text like "=SUM(A1)" is stored as text, never run as a formula. */
+/**
+ * RAW input: text like "=SUM(A1)" is stored as text, never run as a formula.
+ * OVERWRITE fills the next empty row (already formatted as a normal row) instead
+ * of inserting one that copies the bold header's style.
+ */
 export async function appendRow(token: string, spreadsheetId: string, sheetTitle: string, row: Array<string | number | boolean>): Promise<void> {
   const range = encodeURIComponent(a1(sheetTitle, "A1"));
-  await call(token, `${SHEETS}/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+  await call(token, `${SHEETS}/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=OVERWRITE`, {
     method: "POST",
     body: JSON.stringify({ values: [row] }),
   });
@@ -84,8 +88,52 @@ export async function sheetTitleById(token: string, spreadsheetId: string, sheet
   return data.sheets?.find((sheet) => sheet.properties.sheetId === sheetId)?.properties.title ?? null;
 }
 
-export async function createFolder(token: string, name: string): Promise<{ id: string; webViewLink: string }> {
-  return call(token, `${DRIVE}?fields=id,webViewLink`, { method: "POST", body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder" }) });
+export const FOLDER_MIME = "application/vnd.google-apps.folder";
+
+export async function createFolder(token: string, name: string, parentId?: string): Promise<{ id: string; webViewLink: string }> {
+  return call(token, `${DRIVE}?fields=id,webViewLink`, { method: "POST", body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }) });
+}
+
+/** Drive query string literal: quotes and backslashes escaped. */
+export const driveLiteral = (value: string) => `'${value.replace(/['\\]/g, "\\$&")}'`;
+
+/** A folder this app created with this exact name in a parent ("root" = My Drive), or null. */
+export async function findFolder(token: string, name: string, parentId: string): Promise<{ id: string; webViewLink?: string } | null> {
+  const params = new URLSearchParams({
+    q: `name = ${driveLiteral(name)} and mimeType = '${FOLDER_MIME}' and ${driveLiteral(parentId)} in parents and trashed = false`,
+    fields: "files(id,webViewLink)",
+    pageSize: "1",
+  });
+  const result = await call<{ files?: Array<{ id: string; webViewLink?: string }> }>(token, `${DRIVE}?${params.toString()}`);
+  return result.files?.[0] ?? null;
+}
+
+/** Moves a file this app created into a folder. */
+export async function moveToFolder(token: string, fileId: string, folderId: string): Promise<void> {
+  const file = await getFile(token, fileId);
+  const params = new URLSearchParams({ addParents: folderId, fields: "id" });
+  const others = (file.parents ?? []).filter((parent) => parent !== folderId);
+  if (others.length) params.set("removeParents", others.join(","));
+  await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${params.toString()}`, { method: "PATCH", body: JSON.stringify({}) });
+}
+
+/** Column width for a header: roughly its text width, within sensible bounds. */
+export const headerWidth = (header: string) => Math.min(360, Math.max(100, Math.round(header.length * 7.5 + 28)));
+
+/**
+ * Header row bold, every other row normal (new rows never inherit the header's
+ * style) and each column as wide as its header.
+ */
+export async function formatSheet(token: string, spreadsheetId: string, sheetId: number, headers: string[]): Promise<void> {
+  const requests: unknown[] = [
+    { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } },
+    { repeatCell: { range: { sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: false } } }, fields: "userEnteredFormat.textFormat.bold" } },
+    { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: "gridProperties.frozenRowCount" } },
+    ...headers.map((header, index) => ({
+      updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: index, endIndex: index + 1 }, properties: { pixelSize: headerWidth(header) }, fields: "pixelSize" },
+    })),
+  ];
+  await call(token, `${SHEETS}/${spreadsheetId}:batchUpdate`, { method: "POST", body: JSON.stringify({ requests }) });
 }
 
 export type DriveFile = {

@@ -26,7 +26,7 @@ export async function filesDestination(formId: string) {
   const [drive] = await loadDestinations(formId, ["files"]);
   if (!drive?.googleConnectionId) return null;
   const config = driveConfig.safeParse(drive.config);
-  return config.success ? { connectionId: drive.googleConnectionId, folderId: config.data.folderId } : null;
+  return config.success ? { destinationId: drive.id, connectionId: drive.googleConnectionId, folderId: config.data.folderId, questionFolders: config.data.questionFolders } : null;
 }
 
 export type ResolveResult =
@@ -44,6 +44,7 @@ export async function resolveUploadedFiles(input: { formId: string; responseId: 
 
   try {
     const token = await googleAccessToken(storage.connectionId);
+    const folders = new Set([storage.folderId, ...Object.values(storage.questionFolders)]);
     const resolved: Record<string, ResolvedFile[]> = {};
     const fieldErrors: Record<string, string> = {};
     await Promise.all(
@@ -55,7 +56,7 @@ export async function resolveUploadedFiles(input: { formId: string; responseId: 
             const belongs =
               meta &&
               !meta.trashed &&
-              meta.parents?.includes(storage.folderId) &&
+              meta.parents?.some((parent) => folders.has(parent)) &&
               meta.appProperties?.responseId === input.responseId &&
               meta.appProperties?.fieldId === field.id &&
               meta.appProperties?.formId === input.formId;

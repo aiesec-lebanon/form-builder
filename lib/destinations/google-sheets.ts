@@ -3,9 +3,10 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { appendRow, GoogleApiError, sheetTitleById, writeHeaderRow } from "@/lib/google/api";
+import { appendRow, formatSheet, GoogleApiError, sheetTitleById, writeHeaderRow } from "@/lib/google/api";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { buildCells, fieldHeaders } from "@/lib/forms/payload";
+import { logger } from "@/lib/logger";
 import type { FormDocument } from "@/lib/forms/schema";
 
 import { classifyError } from "./errors";
@@ -63,6 +64,8 @@ function parse(destination: LoadedDestination): SheetsConfig | null {
 async function syncHeaders(token: string, destination: LoadedDestination, config: SheetsConfig, doc: FormDocument): Promise<SheetsConfig> {
   const { columns, headerRow } = syncColumns(config.columns, doc);
   const { config: current } = await withTab(token, destination.id, config, (title) => writeHeaderRow(token, config.spreadsheetId, title, headerRow));
+  // Bold header, normal rows, columns as wide as their headers. Cosmetic: never fails the sync.
+  await formatSheet(token, config.spreadsheetId, config.sheetId, headerRow).catch((error) => logger.warn("sheets.format_failed", { destinationId: destination.id, error }));
   const updated = { ...current, columns };
   await saveConfig(destination.id, updated);
   return updated;

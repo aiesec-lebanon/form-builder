@@ -9,7 +9,12 @@ import {
   createSpreadsheet,
   getFile,
   GoogleApiError,
+  driveLiteral,
+  findFolder,
+  formatSheet,
+  headerWidth,
   listFolderFiles,
+  moveToFolder,
   setFileProperties,
   sheetTitleById,
   trashFile,
@@ -137,6 +142,39 @@ describe("Google access tokens", () => {
   });
 });
 
+describe("Drive folders and Sheet formatting", () => {
+  it("finds, creates and moves into folders", async () => {
+    const fetchMock = stubFetch(json({ files: [{ id: "f1" }] }), json({ files: [] }), json({ id: "new", webViewLink: "https://drive/new" }), json({ id: "s1", parents: ["root-id"] }), json({ id: "s1" }), json({ id: "s2", parents: ["dest"] }), json({ id: "s2" }));
+    expect(await findFolder("tok", "Lina's form", "root")).toEqual({ id: "f1" });
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("q")).toBe("name = 'Lina\\'s form' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false");
+    expect(await findFolder("tok", "Missing", "root")).toBeNull();
+    await createFolderCall();
+    async function createFolderCall() {
+      const { createFolder } = await import("@/lib/google/api");
+      expect(await createFolder("tok", "Uploads", "parent-1")).toEqual({ id: "new", webViewLink: "https://drive/new" });
+      expect(JSON.parse(String(fetchMock.mock.calls[2][1].body))).toMatchObject({ name: "Uploads", parents: ["parent-1"] });
+    }
+    await moveToFolder("tok", "s1", "dest");
+    const move = new URL(fetchMock.mock.calls[4][0]);
+    expect(move.searchParams.get("addParents")).toBe("dest");
+    expect(move.searchParams.get("removeParents")).toBe("root-id");
+    await moveToFolder("tok", "s2", "dest");
+    expect(new URL(fetchMock.mock.calls[6][0]).searchParams.has("removeParents")).toBe(false);
+    expect(driveLiteral("a\\b")).toBe("'a\\\\b'");
+  });
+
+  it("bolds only the header and sizes columns to their headers", async () => {
+    const fetchMock = stubFetch(json({}));
+    await formatSheet("tok", "s1", 7, ["Submitted at", "Which committee are you in right now?"]);
+    const requests = JSON.parse(String(fetchMock.mock.calls[0][1].body)).requests;
+    expect(requests[0].repeatCell).toMatchObject({ range: { sheetId: 7, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } } });
+    expect(requests[1].repeatCell).toMatchObject({ range: { sheetId: 7, startRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: false } } } });
+    expect(requests.slice(3).map((request: { updateDimensionProperties: { properties: { pixelSize: number } } }) => request.updateDimensionProperties.properties.pixelSize)).toEqual([headerWidth("Submitted at"), headerWidth("Which committee are you in right now?")]);
+    expect(headerWidth("ID")).toBe(100);
+    expect(headerWidth("x".repeat(200))).toBe(360);
+  });
+});
+
 describe("Drive cleanup calls", () => {
   it("lists a folder's files and moves files to the trash", async () => {
     const fetchMock = stubFetch(json({ files: [{ id: "a", createdTime: "2026-11-01T00:00:00Z" }], nextPageToken: "next" }), json({ files: [] }), json({ id: "a" }));
@@ -168,7 +206,7 @@ describe("Sheets and Drive client", () => {
     await writeHeaderRow("tok", "s1", "Responses", ["A"]);
     await appendRow("tok", "s1", "Responses", ["=SUM(A1)", 2, true]);
     expect(fetchMock.mock.calls[0][0]).toContain("valueInputOption=RAW");
-    expect(fetchMock.mock.calls[1][0]).toContain(":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS");
+    expect(fetchMock.mock.calls[1][0]).toContain(":append?valueInputOption=RAW&insertDataOption=OVERWRITE");
     expect(JSON.parse(String(fetchMock.mock.calls[1][1].body))).toEqual({ values: [["=SUM(A1)", 2, true]] });
   });
 
