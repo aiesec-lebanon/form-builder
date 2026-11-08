@@ -1,10 +1,12 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import NextLink from "next/link";
 
-import { Button, Select, TextField } from "@/components/aiesec";
+import { Button, DatePicker, Select } from "@/components/aiesec";
 import { RelativeTime } from "@/components/app/RelativeTime";
 import { activityHref, hasFilters, type ActivityQuery } from "@/lib/admin/activity-query";
 import { formatCount, shortDate } from "@/lib/format";
+
+import { FilterCombo, type FilterOption } from "./FilterCombo";
 
 // Shared pieces of the admin tables: sortable headers, the filter bar and the
 // "Showing 1–25 of 132" line. Everything is a link or a GET form, so views
@@ -46,13 +48,12 @@ export function When({ date }: { date: Date }) {
   );
 }
 
-type Option = { value: string; label: string };
-const ANY = "any";
-const withAny = (label: string, options: Option[]): Option[] => [{ value: ANY, label }, ...options];
+/** Values that exist in the data, per filter. */
+export type FilterOptions = { people: FilterOption[]; entities: FilterOption[]; devices: FilterOption[]; events: FilterOption[]; forms: FilterOption[]; reasons: FilterOption[] };
 
-/** One control per column, applied together. */
-export function Filters({ query, entities, events, reasons }: { query: ActivityQuery; entities: string[]; events: Option[]; reasons: Option[] }) {
-  const clear = activityHref({ ...query, q: "", entity: "", device: "", event: "", form: "", reason: "", status: "open", from: "", to: "" });
+/** One control per column, applied together. Lists offer only values that exist, and can be searched. */
+export function Filters({ query, options }: { query: ActivityQuery; options: FilterOptions }) {
+  const clear = activityHref({ ...query, person: "", entity: "", device: "", event: "", form: "", reason: "", status: "open", from: "", to: "" });
   const label = { signins: "Filter sign-ins", all: "Filter activity", reports: "Filter reports" }[query.tab];
   return (
     <form method="get" action="/admin/activity" role="search" aria-label={label} className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
@@ -62,22 +63,22 @@ export function Filters({ query, entities, events, reasons }: { query: ActivityQ
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {query.tab === "signins" && (
           <>
-            <TextField label="Member" name="q" size="sm" placeholder="Name or EXPA ID" defaultValue={query.q} />
-            <Select label="Entity" name="entity" size="sm" defaultValue={query.entity || ANY} options={withAny("All entities", entities.map((entity) => ({ value: entity, label: entity })))} />
-            <TextField label="Device" name="device" size="sm" placeholder="iPhone, Chrome…" defaultValue={query.device} />
+            <FilterCombo label="Member" name="person" placeholder="Everyone" options={options.people} defaultValue={query.person} />
+            <FilterCombo label="Entity" name="entity" placeholder="All entities" options={options.entities} defaultValue={query.entity} />
+            <FilterCombo label="Device" name="device" placeholder="All devices" options={options.devices} defaultValue={query.device} />
           </>
         )}
         {query.tab === "all" && (
           <>
-            <Select label="Event" name="event" size="sm" defaultValue={query.event || ANY} options={withAny("All events", events)} />
-            <TextField label="By" name="q" size="sm" placeholder="Name or EXPA ID" defaultValue={query.q} />
-            <TextField label="Form" name="form" size="sm" placeholder="Form title" defaultValue={query.form} />
+            <FilterCombo label="Event" name="event" placeholder="All events" options={options.events} defaultValue={query.event} />
+            <FilterCombo label="By" name="person" placeholder="Everyone" options={options.people} defaultValue={query.person} />
+            <FilterCombo label="Form" name="form" placeholder="All forms" options={options.forms} defaultValue={query.form} />
           </>
         )}
         {query.tab === "reports" && (
           <>
-            <TextField label="Form" name="form" size="sm" placeholder="Form title" defaultValue={query.form} />
-            <Select label="Reason" name="reason" size="sm" defaultValue={query.reason || ANY} options={withAny("All reasons", reasons)} />
+            <FilterCombo label="Form" name="form" placeholder="All forms" options={options.forms} defaultValue={query.form} />
+            <FilterCombo label="Reason" name="reason" placeholder="All reasons" options={options.reasons} defaultValue={query.reason} />
             <Select
               label="Status"
               name="status"
@@ -91,8 +92,8 @@ export function Filters({ query, entities, events, reasons }: { query: ActivityQ
             />
           </>
         )}
-        <TextField label="From" name="from" type="date" size="sm" defaultValue={query.from} />
-        <TextField label="To" name="to" type="date" size="sm" defaultValue={query.to} />
+        <DatePicker label="From" name="from" size="sm" defaultValue={query.from || undefined} />
+        <DatePicker label="To" name="to" size="sm" defaultValue={query.to || undefined} />
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="sm">

@@ -21,12 +21,13 @@ export type ActivityQuery = {
   page: number;
   sort: string;
   dir: SortDir;
-  /** Person: member (sign-ins) or who did it (all activity). Name or EXPA ID. */
-  q: string;
+  /** Person (user id): the member (sign-ins) or who did it (all activity). */
+  person: string;
   entity: string;
+  /** A device label like "Chrome on Windows". */
   device: string;
   event: string;
-  /** Form title (all activity details, reports). */
+  /** Form id (all activity details, reports). */
   form: string;
   reason: string;
   status: ReportStatus;
@@ -36,6 +37,7 @@ export type ActivityQuery = {
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function parseActivityQuery(params: Record<string, string | string[] | undefined>): ActivityQuery {
   // "any" is what the filter menus send for "All …".
@@ -46,17 +48,23 @@ export function parseActivityQuery(params: Record<string, string | string[] | un
   const tab: ActivityTab = one("tab") === "all" ? "all" : one("tab") === "reports" ? "reports" : "signins";
   const sort = (SORT_KEYS[tab] as readonly string[]).includes(one("sort")) ? one("sort") : "when";
   const status: ReportStatus = one("status") === "reviewed" ? "reviewed" : one("status") === "all" ? "all" : "open";
-  const date = (key: string) => (DATE.test(one(key)) && !Number.isNaN(Date.parse(`${one(key)}T00:00:00Z`)) ? one(key) : "");
+  // A real calendar day only: 2026-02-31 would otherwise roll over to March.
+  const date = (key: string) => {
+    const value = one(key);
+    if (!DATE.test(value)) return "";
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : "";
+  };
   return {
     tab,
     page: Math.min(Math.max(Number.parseInt(one("page"), 10) || 1, 1), 10_000),
     sort,
     dir: one("dir") === "asc" ? "asc" : "desc",
-    q: one("q"),
+    person: UUID.test(one("person")) ? one("person") : "",
     entity: one("entity", 200),
     device: one("device", 60),
     event: one("event", 60),
-    form: one("form"),
+    form: UUID.test(one("form")) ? one("form") : "",
     reason: one("reason", 40),
     status,
     from: date("from"),
@@ -69,7 +77,7 @@ export function activityHref(query: ActivityQuery, patch: Partial<ActivityQuery>
   const next = { ...query, page: "page" in patch ? (patch.page ?? 1) : 1, ...patch };
   const params = new URLSearchParams();
   if (next.tab !== "signins") params.set("tab", next.tab);
-  const relevant: Record<ActivityTab, Array<keyof ActivityQuery>> = { signins: ["q", "entity", "device"], all: ["q", "event", "form"], reports: ["form", "reason"] };
+  const relevant: Record<ActivityTab, Array<keyof ActivityQuery>> = { signins: ["person", "entity", "device"], all: ["person", "event", "form"], reports: ["form", "reason"] };
   for (const key of relevant[next.tab]) if (next[key]) params.set(key, String(next[key]));
   if (next.tab === "reports" && next.status !== "open") params.set("status", next.status);
   if (next.from) params.set("from", next.from);
@@ -84,8 +92,8 @@ export function activityHref(query: ActivityQuery, patch: Partial<ActivityQuery>
 /** Whether any filter (not sort or page) is set. */
 export function hasFilters(query: ActivityQuery): boolean {
   if (query.from || query.to) return true;
-  if (query.tab === "signins") return Boolean(query.q || query.entity || query.device);
-  if (query.tab === "all") return Boolean(query.q || query.event || query.form);
+  if (query.tab === "signins") return Boolean(query.person || query.entity || query.device);
+  if (query.tab === "all") return Boolean(query.person || query.event || query.form);
   return Boolean(query.form || query.reason || query.status !== "open");
 }
 
@@ -101,29 +109,19 @@ export function createdAtRange(query: Pick<ActivityQuery, "from" | "to">): { gte
   return range.gte || range.lt ? range : undefined;
 }
 
-const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
-
-/** Person filter: name contains, or the exact EXPA ID when it's a number. */
-function personFilter(q: string): Prisma.UserWhereInput {
-  return /^\d{1,18}$/.test(q) ? { OR: [{ fullName: contains(q) }, { aiesecPersonId: BigInt(q) }] } : { fullName: contains(q) };
-}
-
-/** Audit filters. `formIds` are the forms whose title matched the form filter (all activity). */
-export function auditWhere(query: ActivityQuery, formIds?: string[]): Prisma.AuditEventWhereInput {
+/** Audit filters. `userAgents` are the raw browser strings behind the chosen device label. */
+export function auditWhere(query: ActivityQuery, userAgents?: string[]): Prisma.AuditEventWhereInput {
   const where: Prisma.AuditEventWhereInput = {};
   if (query.tab === "signins") where.type = "auth.sign_in";
   else if (query.event) where.type = query.event;
   const createdAt = createdAtRange(query);
   if (createdAt) where.createdAt = createdAt;
-  const actor: Prisma.UserWhereInput = {
-    ...(query.q ? personFilter(query.q) : {}),
-    ...(query.tab === "signins" && query.entity ? { officeName: query.entity } : {}),
-  };
-  if (Object.keys(actor).length) where.actor = actor;
-  if (query.tab === "signins" && query.device) where.userAgent = contains(query.device);
+  if (query.person) where.actorId = query.person;
+  if (query.tab === "signins" && query.entity) where.actor = { officeName: query.entity };
+  if (query.tab === "signins" && query.device) where.userAgent = { in: userAgents ?? [] };
   if (query.tab === "all" && query.form) {
     where.targetType = "form";
-    where.targetId = { in: formIds ?? [] };
+    where.targetId = query.form;
   }
   return where;
 }
@@ -149,7 +147,7 @@ export function reportWhere(query: ActivityQuery): Prisma.FormReportWhereInput {
   if (query.status === "open") where.reviewedAt = null;
   if (query.status === "reviewed") where.reviewedAt = { not: null };
   if (query.reason) where.reason = query.reason;
-  if (query.form) where.form = { title: contains(query.form) };
+  if (query.form) where.formId = query.form;
   const createdAt = createdAtRange(query);
   if (createdAt) where.createdAt = createdAt;
   return where;

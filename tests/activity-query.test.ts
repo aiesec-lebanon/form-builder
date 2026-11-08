@@ -2,18 +2,30 @@ import { describe, expect, it } from "vitest";
 
 import { activityHref, auditOrderBy, auditWhere, createdAtRange, hasFilters, PAGE_SIZE, pageWindow, parseActivityQuery, reportOrderBy, reportWhere } from "@/lib/admin/activity-query";
 
+const PERSON = "4ba82863-78c6-4222-94ef-ec6d9bece335";
+const FORM = "3f2b8c1e-5d4a-4b6f-9c2e-1a7d8e9f0b12";
+
 describe("admin activity URLs", () => {
   it("reads filters, sort and page safely", () => {
-    const query = parseActivityQuery({ tab: "reports", sort: "form", dir: "asc", page: "3", form: " Recruitment ", reason: "spam", status: "all", from: "2026-11-01", to: "not-a-date" });
-    expect(query).toMatchObject({ tab: "reports", sort: "form", dir: "asc", page: 3, form: "Recruitment", reason: "spam", status: "all", from: "2026-11-01", to: "" });
-    expect(parseActivityQuery({ tab: "nope", sort: "reason", page: "-4", entity: "any", from: "2026-02-31" })).toMatchObject({ tab: "signins", sort: "when", dir: "desc", page: 1, entity: "" });
+    const query = parseActivityQuery({ tab: "reports", sort: "form", dir: "asc", page: "3", form: FORM, reason: "spam", status: "all", from: "2026-11-01", to: "not-a-date" });
+    expect(query).toMatchObject({ tab: "reports", sort: "form", dir: "asc", page: 3, form: FORM, reason: "spam", status: "all", from: "2026-11-01", to: "" });
+    expect(parseActivityQuery({ tab: "nope", sort: "reason", page: "-4", entity: "any", person: "Lina", form: "Recruitment", from: "2026-02-31" })).toMatchObject({
+      tab: "signins",
+      sort: "when",
+      dir: "desc",
+      page: 1,
+      entity: "",
+      person: "",
+      form: "",
+      from: "",
+    });
     expect(parseActivityQuery({ page: "999999" }).page).toBe(10_000);
   });
 
   it("builds links that keep the view and reset the page", () => {
-    const query = parseActivityQuery({ tab: "all", q: "Lina", event: "form.published", sort: "by", dir: "asc", page: "4", entity: "LC Beirut" });
-    expect(activityHref(query)).toBe("/admin/activity?tab=all&q=Lina&event=form.published&sort=by&dir=asc");
-    expect(activityHref(query, { page: 2 })).toBe("/admin/activity?tab=all&q=Lina&event=form.published&sort=by&dir=asc&page=2");
+    const query = parseActivityQuery({ tab: "all", person: PERSON, event: "form.published", sort: "by", dir: "asc", page: "4", entity: "LC Beirut" });
+    expect(activityHref(query)).toBe(`/admin/activity?tab=all&person=${PERSON}&event=form.published&sort=by&dir=asc`);
+    expect(activityHref(query, { page: 2 })).toBe(`/admin/activity?tab=all&person=${PERSON}&event=form.published&sort=by&dir=asc&page=2`);
     expect(activityHref(parseActivityQuery({}), { tab: "reports", status: "reviewed", from: "2026-11-01" })).toBe("/admin/activity?tab=reports&status=reviewed&from=2026-11-01");
     expect(activityHref(parseActivityQuery({}))).toBe("/admin/activity");
   });
@@ -21,8 +33,8 @@ describe("admin activity URLs", () => {
   it("knows when filters are set", () => {
     expect(hasFilters(parseActivityQuery({}))).toBe(false);
     expect(hasFilters(parseActivityQuery({ sort: "member", page: "2" }))).toBe(false);
-    expect(hasFilters(parseActivityQuery({ device: "iPhone" }))).toBe(true);
-    expect(hasFilters(parseActivityQuery({ tab: "all", form: "x" }))).toBe(true);
+    expect(hasFilters(parseActivityQuery({ device: "Chrome on Windows" }))).toBe(true);
+    expect(hasFilters(parseActivityQuery({ tab: "all", form: FORM }))).toBe(true);
     expect(hasFilters(parseActivityQuery({ tab: "reports" }))).toBe(false);
     expect(hasFilters(parseActivityQuery({ tab: "reports", status: "all" }))).toBe(true);
     expect(hasFilters(parseActivityQuery({ to: "2026-11-09" }))).toBe(true);
@@ -31,20 +43,21 @@ describe("admin activity URLs", () => {
 
 describe("admin activity queries", () => {
   it("filters sign-ins by member, entity, device and day", () => {
-    const where = auditWhere(parseActivityQuery({ q: "5099966", entity: "LC Beirut", device: "iPhone", from: "2026-11-01", to: "2026-11-01" }));
-    expect(where).toMatchObject({
+    const where = auditWhere(parseActivityQuery({ person: PERSON, entity: "LC Beirut", device: "Chrome on Windows", from: "2026-11-01", to: "2026-11-01" }), ["Mozilla/5.0 (Windows NT 10.0) Chrome/120"]);
+    expect(where).toEqual({
       type: "auth.sign_in",
-      userAgent: { contains: "iPhone", mode: "insensitive" },
-      actor: { officeName: "LC Beirut", OR: [{ fullName: { contains: "5099966", mode: "insensitive" } }, { aiesecPersonId: 5099966n }] },
+      actorId: PERSON,
+      actor: { officeName: "LC Beirut" },
+      userAgent: { in: ["Mozilla/5.0 (Windows NT 10.0) Chrome/120"] },
       createdAt: { gte: new Date("2026-11-01T00:00:00Z"), lt: new Date("2026-11-02T00:00:00Z") },
     });
-    expect(auditWhere(parseActivityQuery({ q: "Lina" })).actor).toEqual({ fullName: { contains: "Lina", mode: "insensitive" } });
+    // An unknown device label matches nothing rather than everything.
+    expect(auditWhere(parseActivityQuery({ device: "Fax on Toaster" })).userAgent).toEqual({ in: [] });
   });
 
   it("filters all activity by event, person and form", () => {
-    expect(auditWhere(parseActivityQuery({ tab: "all", event: "form.published", form: "Recruitment" }), ["f1", "f2"])).toEqual({ type: "form.published", targetType: "form", targetId: { in: ["f1", "f2"] } });
-    expect(auditWhere(parseActivityQuery({ tab: "all", form: "x" }))).toMatchObject({ targetId: { in: [] } });
-    expect(auditWhere(parseActivityQuery({ tab: "all" }))).toEqual({});
+    expect(auditWhere(parseActivityQuery({ tab: "all", event: "form.published", person: PERSON, form: FORM }))).toEqual({ type: "form.published", actorId: PERSON, targetType: "form", targetId: FORM });
+    expect(auditWhere(parseActivityQuery({ tab: "all", entity: "ignored here", device: "ignored too" }))).toEqual({});
   });
 
   it("sorts by the chosen column, newest first by default", () => {
@@ -59,10 +72,10 @@ describe("admin activity queries", () => {
 
   it("filters reports by status, reason, form and day", () => {
     expect(reportWhere(parseActivityQuery({ tab: "reports" }))).toEqual({ reviewedAt: null });
-    expect(reportWhere(parseActivityQuery({ tab: "reports", status: "reviewed", reason: "spam", form: "Rec", from: "2026-11-05" }))).toEqual({
+    expect(reportWhere(parseActivityQuery({ tab: "reports", status: "reviewed", reason: "spam", form: FORM, from: "2026-11-05" }))).toEqual({
       reviewedAt: { not: null },
       reason: "spam",
-      form: { title: { contains: "Rec", mode: "insensitive" } },
+      formId: FORM,
       createdAt: { gte: new Date("2026-11-05T00:00:00Z") },
     });
     expect(reportWhere(parseActivityQuery({ tab: "reports", status: "all" }))).toEqual({});

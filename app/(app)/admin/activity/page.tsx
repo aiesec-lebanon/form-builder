@@ -6,10 +6,10 @@ import { activityHref, auditOrderBy, auditWhere, hasFilters, PAGE_SIZE, pageWind
 import { requireAdmin } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { formatCount } from "@/lib/format";
-import { REPORT_REASON_LABEL, REPORT_REASONS } from "@/lib/forms/reports";
 import { describeUserAgent } from "@/lib/request";
 
 import { ActivityPagination } from "./ActivityPagination";
+import { filterOptions } from "./filter-options";
 import { ReportsTable } from "./ReportsList";
 import { Filters, PlainHeader, ResultCount, SortHeader, When } from "./table-parts";
 
@@ -37,10 +37,6 @@ const EVENT_LABELS: Record<string, string> = {
   "google.disconnected": "Disconnected Google",
   "google.folder_moved": "Moved the AIESEC Forms folder",
 };
-const EVENT_OPTIONS = Object.entries(EVENT_LABELS)
-  .map(([value, label]) => ({ value, label }))
-  .sort((a, b) => a.label.localeCompare(b.label));
-const REASON_OPTIONS = REPORT_REASONS.map((value) => ({ value, label: REPORT_REASON_LABEL[value] }));
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -66,17 +62,13 @@ export default async function ActivityPage({ searchParams }: Props) {
   const query = parseActivityQuery(await searchParams);
   const filtered = hasFilters(query);
 
-  const [members, signIns, forms, liveForms, openReports, entities] = await Promise.all([
+  const [members, signIns, forms, liveForms, openReports, { options, deviceAgents }] = await Promise.all([
     db.user.count(),
     db.auditEvent.count({ where: { type: "auth.sign_in", createdAt: { gte: daysAgo(7) } } }),
     db.form.count({ where: { deletedAt: null } }),
     db.form.count({ where: { deletedAt: null, publishedAt: { not: null }, acceptingResponses: true } }),
     db.formReport.count({ where: { reviewedAt: null } }),
-    query.tab === "signins"
-      ? db.user
-          .findMany({ where: { officeName: { not: null } }, distinct: ["officeName"], select: { officeName: true }, orderBy: { officeName: "asc" }, take: 300 })
-          .then((rows) => rows.map((row) => row.officeName as string))
-      : Promise.resolve([] as string[]),
+    filterOptions(query.tab, EVENT_LABELS),
   ]);
 
   let table: React.ReactNode;
@@ -90,9 +82,7 @@ export default async function ActivityPage({ searchParams }: Props) {
     const reports = await db.formReport.findMany({ where, orderBy: reportOrderBy(query), skip: pages.skip, take: PAGE_SIZE, include: reportInclude });
     table = <ReportsTable query={query} reports={reports} filtered={filtered} />;
   } else {
-    // "Form" filter on all activity: events about forms whose title matches.
-    const formIds = query.tab === "all" && query.form ? (await db.form.findMany({ where: { title: { contains: query.form, mode: "insensitive" } }, select: { id: true }, take: 500 })).map((form) => form.id) : undefined;
-    const where = auditWhere(query, formIds);
+    const where = auditWhere(query, deviceAgents.get(query.device));
     total = await db.auditEvent.count({ where });
     pages = pageWindow(query.page, total);
     const rows = await db.auditEvent.findMany({ where, orderBy: auditOrderBy(query), skip: pages.skip, take: PAGE_SIZE, include: { actor: actorSelect } });
@@ -200,7 +190,8 @@ export default async function ActivityPage({ searchParams }: Props) {
           {tabLink("all", "All activity")}
           {tabLink("reports", openReports > 0 ? `Reports (${formatCount(openReports)} open)` : "Reports")}
         </nav>
-        <Filters key={query.tab} query={query} entities={entities} events={EVENT_OPTIONS} reasons={REASON_OPTIONS} />
+        {/* Keyed by the URL so the controls reset after applying or clearing filters. */}
+        <Filters key={activityHref(query)} query={query} options={options} />
       </div>
 
       <div className="flex flex-col gap-3">
