@@ -90,7 +90,7 @@ export const googleSheetsAdapter: DestinationAdapter = {
     const known = new Set(config.columns.map((column) => column.fieldId));
     // Published before the columns could be prepared: catch up now (idempotent).
     if (fieldHeaders(doc).some((header) => !known.has(header.fieldId))) config = await syncHeaders(token, destination, config, doc);
-    const cells = buildCells(doc, values);
+    const cells = buildCells(doc, values, payload.respondent);
     const row = [sheetTimestamp(payload.submittedAt), payload.responseId, ...config.columns.map((column) => cells[column.fieldId] ?? "")];
     const sheet = config;
     await withTab(token, destination.id, sheet, (title) => appendRow(token, sheet.spreadsheetId, title, row));

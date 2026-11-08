@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 
 import { FormRenderer } from "@/components/form/FormRenderer";
+import { RespondentGate } from "@/components/form/RespondentGate";
 import { db } from "@/lib/db";
 import { availability } from "@/lib/forms/availability";
 import { issueRenderToken } from "@/lib/forms/render-token";
@@ -34,6 +35,15 @@ export default async function EmbedPage({ params, searchParams }: Props) {
   const theme = query.theme === "light" || query.theme === "dark" ? query.theme : undefined;
   const open = availability(form);
   if (open.open) after(() => countView(form.id));
+
+  // Sign-in can't happen inside another site's frame (ADR-013): send people to the full page.
+  if (doc.settings.access.mode === "aiesec" && open.open) {
+    return (
+      <main>
+        <RespondentGate doc={doc} slug={slug} reason="embed" />
+      </main>
+    );
+  }
 
   return (
     <main className={transparent ? "fb-embed-transparent" : undefined}>

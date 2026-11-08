@@ -10,6 +10,7 @@ import { validateAnswers } from "@/lib/forms/fields";
 import { buildPayload } from "@/lib/forms/payload";
 import { visibleFields } from "@/lib/forms/logic";
 import { verifyRenderToken } from "@/lib/forms/render-token";
+import { accessProblem, claimResponse, currentRespondent, releaseResponse } from "@/lib/forms/respondents";
 import { parseDocument } from "@/lib/forms/schema";
 import { isSameOrigin, jsonError, jsonOk, readJson } from "@/lib/http";
 import { logger } from "@/lib/logger";
@@ -87,6 +88,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return jsonError(500, "server_error", "This form can't take responses right now.");
   }
 
+  // AIESEC-only forms (ADR-013): the page gates people, and so does this endpoint.
+  const access = doc.settings.access;
+  const respondent = access.mode === "aiesec" ? await currentRespondent() : null;
+  const problem = accessProblem(access, respondent, false);
+  if (problem === "sign_in") return jsonError(401, "unauthorized", "Sign in with AIESEC to send this form.", { error: "sign_in_required" });
+  if (problem === "members_only") return jsonError(403, "forbidden", "This form is for current AIESEC members.", { error: "members_only" });
+
   // Only questions visible for these answers count (ADR-009); hidden ones are sent as null.
   const fields = visibleFields(doc, body.answers);
   const validation = validateAnswers(fields, body.answers);
@@ -104,10 +112,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     Object.assign(values, files.values);
   }
 
-  const payload = buildPayload({ responseId: body.responseId, submittedAt: new Date(), form: { id: form.id, slug: form.slug }, doc, values });
+  // One response per person: claim it before delivering, give it back if delivery fails.
+  const claimed = Boolean(respondent && access.onePerPerson);
+  if (respondent && claimed && !(await claimResponse(form.id, respondent.aiesecId, body.responseId))) {
+    return jsonError(409, "forbidden", "You've already responded to this form.", { error: "already_responded" });
+  }
+
+  const recorded = respondent ? { aiesecId: respondent.aiesecId, name: respondent.name, email: respondent.email } : null;
+  const payload = buildPayload({ responseId: body.responseId, submittedAt: new Date(), form: { id: form.id, slug: form.slug }, doc, values, respondent: recorded });
   const context = { payload, doc, values };
   const outcome = await deliverToPrimary(form.id, context);
   if (!outcome.ok) {
+    if (respondent && claimed) await releaseResponse(form.id, respondent.aiesecId, body.responseId).catch((error) => logger.warn("submit.release_failed", { formId: form.id, error }));
     logger.warn("submit.delivery_failed", { formId: form.id, retryable: outcome.retryable, ms: Date.now() - started });
     return jsonError(502, "delivery_failed", "We couldn't send your response just now. Your answers are saved on this device, so you can try again.");
   }

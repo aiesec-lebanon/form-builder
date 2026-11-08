@@ -64,6 +64,13 @@ export default function PrivacyPage() {
         </section>
 
         <section className="flex flex-col gap-3">
+          <h2 className="ae-h3">Forms that ask you to sign in with AIESEC</h2>
+          <p className="ae-body">
+            Some forms ask you to sign in with AIESEC before answering. AIESEC Forms then reads your name, email, AIESEC ID and whether you have a current role. It keeps them in an encrypted cookie in your browser for 12 hours and doesn&apos;t store them. The form tells you if its owner records who responded. In that case your name, email and AIESEC ID are sent with your answers to the owner&apos;s destination. Forms that take one response per person keep a one-way code showing that a response was sent, without your name or ID.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
           <h2 className="ae-h3">Contact</h2>
           <p className="ae-body">AIESEC Forms is run by AIESEC in Lebanon. Questions about this policy go to the platform team of AIESEC in Lebanon.</p>
         </section>

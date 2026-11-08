@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit";
 import { activePositions, fetchCurrentPerson, GisError } from "@/lib/auth/gis";
 import { exchangeCode, handshakeCookieOptions, OAuthError, RETURN_TO_COOKIE, safeReturnTo, STATE_COOKIE } from "@/lib/auth/oauth";
 import { evaluateAccess } from "@/lib/auth/policy";
+import { isFormPath, PURPOSE_COOKIE, respondentCookieOptions, RESPONDENT_COOKIE, sealRespondent } from "@/lib/auth/respondent";
 import { newSessionPayload, nowSeconds, sealSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
 import { acceptPendingInvites, profileFromPerson, upsertUser } from "@/lib/auth/sign-in";
 import { safeEqual } from "@/lib/crypto";
@@ -18,18 +19,22 @@ type FailureCode = "denied" | "state" | "missing_code" | "exchange_failed" | "ai
 function clearHandshake(response: NextResponse): NextResponse {
   response.cookies.set(STATE_COOKIE, "", handshakeCookieOptions(0));
   response.cookies.set(RETURN_TO_COOKIE, "", handshakeCookieOptions(0));
+  response.cookies.set(PURPOSE_COOKIE, "", handshakeCookieOptions(0));
   response.headers.set("Cache-Control", "no-store");
   return response;
-}
-
-function failure(code: FailureCode): NextResponse {
-  return clearHandshake(NextResponse.redirect(new URL(`/login?error=${code}`, baseUrl())));
 }
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const ip = clientIp(request.headers);
   const ua = userAgent(request.headers);
+  const savedReturnTo = safeReturnTo(request.cookies.get(RETURN_TO_COOKIE)?.value);
+  // Answering an AIESEC-only form (ADR-013): problems go back to the form, not to the app's sign-in page.
+  const respond = request.cookies.get(PURPOSE_COOKIE)?.value === "respond" && isFormPath(savedReturnTo);
+  const failure = (code: FailureCode): NextResponse => {
+    const target = respond ? `${savedReturnTo.split("?")[0]}?signin=${code}` : `/login?error=${code}`;
+    return clearHandshake(NextResponse.redirect(new URL(target, baseUrl())));
+  };
 
   if (params.get("error")) {
     logger.info("auth.provider_error", { providerError: params.get("error")?.slice(0, 100) });
@@ -43,7 +48,7 @@ export async function GET(request: NextRequest) {
     logger.warn("auth.state_mismatch", { hadCookie: Boolean(expectedState), hadParam: Boolean(returnedState) });
     return failure("state");
   }
-  const returnTo = safeReturnTo(request.cookies.get(RETURN_TO_COOKIE)?.value);
+  const returnTo = savedReturnTo;
 
   const code = params.get("code");
   if (!code) return failure("missing_code");
@@ -62,6 +67,16 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.warn("auth.identity_failed", { error });
     return failure(error instanceof GisError && error.kind === "rejected" ? "exchange_failed" : "aiesec_unavailable");
+  }
+
+  if (respond) {
+    // Identity for this form only: a sealed cookie, no app account, nothing stored.
+    const profile = profileFromPerson(person);
+    const sealed = await sealRespondent({ aiesecId: person.id, name: profile.fullName, email: profile.email, member: activePositions(person).length > 0 });
+    logger.info("auth.respondent_sign_in", { member: activePositions(person).length > 0 });
+    const response = NextResponse.redirect(new URL(returnTo, baseUrl()));
+    response.cookies.set(RESPONDENT_COOKIE, sealed, respondentCookieOptions());
+    return clearHandshake(response);
   }
 
   const config = env();

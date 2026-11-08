@@ -51,7 +51,7 @@ export const supabaseAdapter: DestinationAdapter = {
   async deliver(destination, { payload }) {
     const parsed = parse(destination);
     if (!parsed) return failure("This Supabase connection's settings are incomplete. Remove it and add it again.", false);
-    const row = { response_id: payload.responseId, form_id: payload.form.id, submitted_at: payload.submittedAt, data: buildRowData(payload.answers) };
+    const row = { response_id: payload.responseId, form_id: payload.form.id, submitted_at: payload.submittedAt, data: buildRowData(payload.answers, payload.respondent) };
     const response = await guardedFetch(`${parsed.base}/rest/v1/${encodeURIComponent(parsed.table)}?on_conflict=response_id`, {
       method: "POST",
       headers: { ...supabaseHeaders(parsed.apiKey, parsed.schema), "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=minimal" },

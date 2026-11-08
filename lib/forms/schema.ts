@@ -181,6 +181,19 @@ const httpsUrl = z
     }
   }, "Use a link that starts with https://");
 
+/** Who can respond (ADR-013). Versioned with the form: applies when published. */
+export const accessSchema = z.object({
+  /** "anyone": the public link works for everyone. "aiesec": people sign in with AIESEC first. */
+  mode: z.enum(["anyone", "aiesec"]).default("anyone"),
+  /** Only people with a current EXPA position. */
+  membersOnly: z.boolean().default(false),
+  /** Add the respondent's name, email and AIESEC ID to each response. */
+  recordRespondent: z.boolean().default(true),
+  /** One response per AIESEC account. */
+  onePerPerson: z.boolean().default(false),
+});
+export type FormAccess = z.infer<typeof accessSchema>;
+
 export const settingsSchema = z.object({
   submitLabel: z.string().trim().min(1).max(40).default("Send response"),
   confirmationTitle: z.string().max(200).default("Thanks, we got your response"),
@@ -188,6 +201,7 @@ export const settingsSchema = z.object({
   redirectUrl: httpsUrl.nullable().default(null),
   showProgressBar: z.boolean().default(true),
   allowAnotherResponse: z.boolean().default(false),
+  access: accessSchema.default(accessSchema.parse({})),
 });
 export type FormSettings = z.infer<typeof settingsSchema>;
 

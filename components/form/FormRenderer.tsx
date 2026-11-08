@@ -11,6 +11,7 @@ import { allFields, type FormDocument } from "@/lib/forms/schema";
 import { formThemeAttribute } from "@/lib/forms/theme";
 
 import { linkify } from "./linkify";
+import { NotYou } from "./NotYou";
 import { Question } from "./Question";
 import { Turnstile } from "./Turnstile";
 import { notifyEmbedSubmitted, useEmbedResize } from "./useEmbedResize";
@@ -35,6 +36,8 @@ type Props = {
   fullHeight?: boolean;
   /** Cloudflare Turnstile site key when the bot check is on (ADR-012). */
   turnstileSiteKey?: string | null;
+  /** Who is answering an AIESEC-only form (ADR-013). */
+  respondent?: { name: string; email: string | null; canSwitch: boolean; recorded: boolean } | null;
 };
 
 type Status = "filling" | "sending" | "sent" | "failed" | "closed";
@@ -55,6 +58,9 @@ const SEND_ERRORS: Record<string, string> = {
   invalid_token: "This page has been open for a long time. Reload it, then send again. Your answers are kept.",
   too_fast: "That was quick. Wait a moment, then send again.",
   bot_check: "We need to check you're not a bot. Complete the check above the button, then send again.",
+  sign_in_required: "Your AIESEC sign-in has ended. Reload the page to sign in again. Your answers are kept.",
+  members_only: "This form is for current AIESEC members.",
+  already_responded: "You've already responded to this form.",
   default: "Something went wrong while sending. Your answers are saved on this device, so you can try again.",
 };
 
@@ -64,7 +70,7 @@ const CLOSED_COPY: Record<ClosedReason, string> = {
   full: "It has received all the responses it needs. Thanks for your interest.",
 };
 
-export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closedReason = null, transparent = false, themeOverride, fullHeight = false, turnstileSiteKey = null }: Props) {
+export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, closedReason = null, transparent = false, themeOverride, fullHeight = false, turnstileSiteKey = null, respondent = null }: Props) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const summaryRef = React.useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
@@ -345,7 +351,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                 Continue
               </a>
             )}
-            {(doc.settings.allowAnotherResponse || mode === "preview") && (
+            {(mode === "preview" || (doc.settings.allowAnotherResponse && !(doc.settings.access.mode === "aiesec" && doc.settings.access.onePerPerson))) && (
               <Button variant="secondary" onClick={startOver}>
                 Submit another response
               </Button>
@@ -364,6 +370,16 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
             <header className="flex flex-col gap-3">
               <h1 className="ae-h1 break-words">{doc.title || "Untitled form"}</h1>
               {doc.description && <p className="whitespace-pre-line ae-body-lg text-text-muted">{linkify(doc.description)}</p>}
+              {respondent && slug && (
+                <div className="flex flex-col gap-1 rounded-md border border-border bg-bg-subtle px-4 py-3 ae-body-sm">
+                  <p className="text-text">
+                    Answering as <strong>{respondent.name}</strong>
+                    {respondent.email ? ` (${respondent.email})` : ""}
+                  </p>
+                  {respondent.recorded && <p className="text-text-muted">The form&apos;s owner will see your name, email and AIESEC ID with your answers.</p>}
+                  {respondent.canSwitch && <NotYou slug={slug} />}
+                </div>
+              )}
               {restored && (
                 <p className="ae-body-sm text-text-muted">
                   We kept your answers from last time.{" "}

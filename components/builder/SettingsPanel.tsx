@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import * as React from "react";
 
 import { PROGRAMS, Switch, TextField, Textarea, cx } from "@/components/aiesec";
-import { FORM_STYLES, PROGRAM_IDS, type FormDocument, type FormSettings, type FormStyle, type FormTheme } from "@/lib/forms/schema";
+import { FORM_STYLES, PROGRAM_IDS, type FormAccess, type FormDocument, type FormSettings, type FormStyle, type FormTheme } from "@/lib/forms/schema";
 
 const STYLES: Record<FormStyle, { name: string; description: string }> = {
   calm: { name: "Calm", description: "Cool greys, flat and quiet" },
@@ -70,11 +70,58 @@ const MODES: Array<{ id: FormTheme["mode"]; label: string; icon: React.ReactNode
   { id: "dark", label: "Dark", icon: <Moon size={18} aria-hidden="true" /> },
 ];
 
+const ACCESS_MODES: Array<{ id: FormAccess["mode"]; name: string; description: string }> = [
+  { id: "anyone", name: "Anyone with the link", description: "No sign-in needed." },
+  { id: "aiesec", name: "People who sign in with AIESEC", description: "They sign in before answering." },
+];
+
+function AccessSettings({ access, onChange }: { access: FormAccess; onChange: (patch: Partial<FormAccess>) => void }) {
+  return (
+    <Section title="Who can respond" description="Published forms are open to anyone with the link unless you limit them here.">
+      <fieldset className="ae-fieldset">
+        <legend className="sr-only">Who can respond</legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {ACCESS_MODES.map((mode) => (
+            <label
+              key={mode.id}
+              className={cx(
+                "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors duration-150",
+                access.mode === mode.id ? "border-primary bg-primary-soft" : "border-border hover:border-border-strong",
+              )}
+            >
+              <input type="radio" name="access" value={mode.id} checked={access.mode === mode.id} onChange={() => onChange({ mode: mode.id })} className="ae-radio mt-0.5" />
+              <span className="flex min-w-0 flex-col">
+                <span className="ae-body-sm font-bold text-text">{mode.name}</span>
+                <span className="ae-caption text-text-muted">{mode.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {access.mode === "aiesec" && (
+        <div className="flex flex-col gap-4">
+          <Switch label="Only current AIESEC members" hint="People need a current role in EXPA." checked={access.membersOnly} onChange={(event) => onChange({ membersOnly: event.target.checked })} />
+          <Switch
+            label="Record who responded"
+            hint="Adds their name, email and AIESEC ID to each response. They see this before sending."
+            checked={access.recordRespondent}
+            onChange={(event) => onChange({ recordRespondent: event.target.checked })}
+          />
+          <Switch label="One response per person" hint="People who already responded see a message instead of the form." checked={access.onePerPerson} onChange={(event) => onChange({ onePerPerson: event.target.checked })} />
+          <p className="ae-caption text-text-muted">Embedded copies ask people to open the form in a new tab to sign in. Changes apply when you publish.</p>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
   const { settings, theme } = doc;
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:py-10">
       {children}
+
+      <AccessSettings access={settings.access} onChange={(patch) => onSettings({ access: { ...settings.access, ...patch } })} />
 
       <Section title="After someone responds" description="What respondents see once their answers are sent.">
         <TextField label="Confirmation title" value={settings.confirmationTitle} maxLength={200} onChange={(event) => onSettings({ confirmationTitle: event.target.value })} />
@@ -88,7 +135,13 @@ export function SettingsPanel({ doc, onSettings, onTheme, children }: Props) {
           onChange={(event) => onSettings({ confirmationMessage: event.target.value })}
         />
         <RedirectSetting value={settings.redirectUrl} onChange={(redirectUrl) => onSettings({ redirectUrl })} />
-        <Switch label="Let people submit another response" checked={settings.allowAnotherResponse} onChange={(event) => onSettings({ allowAnotherResponse: event.target.checked })} />
+        <Switch
+          label="Let people submit another response"
+          hint={settings.access.mode === "aiesec" && settings.access.onePerPerson ? "Off while “One response per person” is on." : undefined}
+          disabled={settings.access.mode === "aiesec" && settings.access.onePerPerson}
+          checked={settings.allowAnotherResponse && !(settings.access.mode === "aiesec" && settings.access.onePerPerson)}
+          onChange={(event) => onSettings({ allowAnotherResponse: event.target.checked })}
+        />
       </Section>
 
       <Section title="Form behaviour">

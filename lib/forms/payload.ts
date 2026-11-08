@@ -7,12 +7,28 @@ import { allFields, isGridField, type FieldType, type FormDocument } from "./sch
 
 export type PayloadAnswer = { fieldId: string; label: string; type: FieldType; value: OutputValue | null };
 
+/** Who answered an AIESEC-only form, when its owner records it (ADR-013). */
+export type RespondentInfo = { aiesecId: string; name: string; email: string | null };
+
 export type ResponsePayload = {
   responseId: string;
   submittedAt: string;
   form: { id: string; title: string; slug: string };
+  /** Null unless the form asks people to sign in with AIESEC and records who responded. */
+  respondent: RespondentInfo | null;
   answers: PayloadAnswer[];
 };
+
+/** Sheet and row keys for the respondent, kept apart from field ids ("f_…"). */
+export const RESPONDENT_COLUMNS: Array<{ key: string; header: string; pick: (respondent: RespondentInfo) => string }> = [
+  { key: "respondent.name", header: "Name", pick: (respondent) => respondent.name },
+  { key: "respondent.email", header: "Email", pick: (respondent) => respondent.email ?? "" },
+  { key: "respondent.aiesecId", header: "AIESEC ID", pick: (respondent) => respondent.aiesecId },
+];
+
+export function recordsRespondent(doc: FormDocument): boolean {
+  return doc.settings.access.mode === "aiesec" && doc.settings.access.recordRespondent;
+}
 
 const labelOf = (label: string, index: number) => label.trim() || `Question ${index + 1}`;
 
@@ -37,11 +53,13 @@ export function buildPayload(input: {
   form: { id: string; slug: string };
   doc: FormDocument;
   values: Record<string, AnswerValue | null>;
+  respondent?: RespondentInfo | null;
 }): ResponsePayload {
   return {
     responseId: input.responseId,
     submittedAt: input.submittedAt.toISOString(),
     form: { id: input.form.id, title: input.doc.title, slug: input.form.slug },
+    respondent: recordsRespondent(input.doc) ? (input.respondent ?? null) : null,
     answers: buildAnswers(input.doc, input.values),
   };
 }
@@ -52,8 +70,9 @@ export function buildPayload(input: {
 export const gridColumnKey = (fieldId: string, rowId: string) => `${fieldId}.${rowId}`;
 
 /** Spreadsheet cell text per column key (formulas never execute: values are written RAW). */
-export function buildCells(doc: FormDocument, values: Record<string, AnswerValue | null>): Record<string, string | number | boolean> {
+export function buildCells(doc: FormDocument, values: Record<string, AnswerValue | null>, respondent: RespondentInfo | null = null): Record<string, string | number | boolean> {
   const cells: Record<string, string | number | boolean> = {};
+  if (recordsRespondent(doc)) for (const column of RESPONDENT_COLUMNS) cells[column.key] = respondent ? column.pick(respondent) : "";
   for (const field of allFields(doc)) {
     if (!collectsAnswer(field)) continue;
     const value = values[field.id];
@@ -69,16 +88,21 @@ export function buildCells(doc: FormDocument, values: Record<string, AnswerValue
 
 /** Column keys and headers for answer-collecting fields, in document order. */
 export function fieldHeaders(doc: FormDocument): Array<{ fieldId: string; header: string }> {
-  return allFields(doc)
+  const respondent = recordsRespondent(doc) ? RESPONDENT_COLUMNS.map((column) => ({ fieldId: column.key, header: column.header })) : [];
+  const questions = allFields(doc)
     .filter(collectsAnswer)
     .flatMap((field, index) => {
       const header = labelOf(field.label, index);
       if (!isGridField(field)) return [{ fieldId: field.id, header }];
       return field.rows.map((row, rowIndex) => ({ fieldId: gridColumnKey(field.id, row.id), header: `${header} [${gridRowLabel(field, rowIndex)}]` }));
     });
+  return [...respondent, ...questions];
 }
 
-/** The JSONB `data` object for Supabase/Postgres rows: { fieldId: { label, value } }. */
-export function buildRowData(answers: PayloadAnswer[]): Record<string, { label: string; value: OutputValue | null }> {
-  return Object.fromEntries(answers.map((answer) => [answer.fieldId, { label: answer.label, value: answer.value }]));
+/** The JSONB `data` object for Supabase/Postgres rows: { fieldId: { label, value } }, plus "respondent.*" keys when recorded. */
+export function buildRowData(answers: PayloadAnswer[], respondent: RespondentInfo | null = null): Record<string, { label: string; value: OutputValue | null }> {
+  const data: Record<string, { label: string; value: OutputValue | null }> = {};
+  if (respondent) for (const column of RESPONDENT_COLUMNS) data[column.key] = { label: column.header, value: column.pick(respondent) || null };
+  for (const answer of answers) data[answer.fieldId] = { label: answer.label, value: answer.value };
+  return data;
 }

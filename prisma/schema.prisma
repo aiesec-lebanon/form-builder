@@ -74,6 +74,7 @@ model Form {
   collaborators FormCollaborator[]
   invites       FormInvite[]
   destinations  Destination[]
+  respondents   FormRespondent[]
 
   @@index([ownerId, deletedAt])
   @@index([deletedAt])
@@ -194,4 +195,18 @@ model RateLimit {
 
   @@index([windowStart])
   @@map("rate_limits")
+}
+
+/// One-response-per-person record for AIESEC-only forms (ADR-013). Holds a keyed
+/// hash of the person (never the id) and is deleted with the form.
+model FormRespondent {
+  formId        String   @map("form_id") @db.Uuid
+  respondentKey String   @map("respondent_key")
+  responseId    String   @map("response_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@id([formId, respondentKey])
+  @@map("form_respondents")
 }

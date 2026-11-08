@@ -7,6 +7,7 @@ import { classifyError } from "@/lib/destinations/errors";
 import { baseUrl } from "@/lib/env";
 import { availability } from "@/lib/forms/availability";
 import { bytesFromMb, fileTypeAllowed } from "@/lib/forms/fields/other";
+import { accessProblem, currentRespondent } from "@/lib/forms/respondents";
 import { allFields, parseDocument } from "@/lib/forms/schema";
 import { startResumableUpload } from "@/lib/google/api";
 import { googleAccessToken } from "@/lib/google/tokens";
@@ -48,6 +49,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const doc = parseDocument(form.published);
   const field = doc ? allFields(doc).find((item) => item.id === body.fieldId) : undefined;
   if (!field || field.type !== "file_upload") return jsonError(400, "bad_request", "That question doesn't take files.");
+  // AIESEC-only forms take files only from people who may answer (ADR-013).
+  if (doc && doc.settings.access.mode === "aiesec") {
+    const problem = accessProblem(doc.settings.access, await currentRespondent(), false);
+    if (problem === "sign_in") return jsonError(401, "unauthorized", "Sign in with AIESEC to upload files to this form.", { error: "sign_in_required" });
+    if (problem === "members_only") return jsonError(403, "forbidden", "This form is for current AIESEC members.", { error: "members_only" });
+  }
   if (body.size > bytesFromMb(field.maxSizeMb)) return jsonError(422, "invalid", `Each file can be up to ${field.maxSizeMb} MB.`);
   if (!fileTypeAllowed(field.accept, body.mimeType)) return jsonError(422, "invalid", "That file type isn't accepted here.");
 

@@ -113,7 +113,7 @@ export const postgresAdapter: DestinationAdapter = {
       await withClient(parsed.connectionString, (client) =>
         client.query(
           `INSERT INTO ${quoteIdent(parsed.schema)}.${quoteIdent(parsed.table)} (response_id, form_id, submitted_at, data) VALUES ($1, $2, $3, $4) ON CONFLICT (response_id) DO NOTHING`,
-          [payload.responseId, payload.form.id, payload.submittedAt, JSON.stringify(buildRowData(payload.answers))],
+          [payload.responseId, payload.form.id, payload.submittedAt, JSON.stringify(buildRowData(payload.answers, payload.respondent))],
         ),
       );
       return success;
