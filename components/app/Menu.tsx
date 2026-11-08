@@ -34,11 +34,17 @@ type MenuProps = {
   items: MenuItem[];
   align?: "start" | "end";
   minWidth?: number;
+  /** Tooltip for the trigger (icon-only triggers). */
+  title?: string;
+  /** Open below this ancestor of the trigger (e.g. "header"), so the menu never overlaps it. */
+  anchor?: string;
+  /** Space between the trigger (or anchor) and the menu, in px. */
+  gap?: number;
 };
 
 type Position = { top: number; left: number; placement: "below" | "above" };
 
-export function Menu({ label, trigger, triggerClassName, items, align = "end", minWidth = 208 }: MenuProps) {
+export function Menu({ label, trigger, triggerClassName, items, align = "end", minWidth = 208, title, anchor, gap = 4 }: MenuProps) {
   const [open, setOpen] = React.useState(false);
   const [position, setPosition] = React.useState<Position | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -52,15 +58,16 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
     const menu = menuRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
+    const bottom = Math.max(rect.bottom, (anchor ? trigger.closest(anchor)?.getBoundingClientRect().bottom : undefined) ?? rect.bottom);
     const menuHeight = menu?.offsetHeight ?? 0;
     const menuWidth = Math.max(menu?.offsetWidth ?? minWidth, minWidth);
-    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceBelow = window.innerHeight - bottom;
     const placement = spaceBelow < menuHeight + 12 && rect.top > menuHeight + 12 ? "above" : "below";
-    const top = placement === "below" ? rect.bottom + 4 : rect.top - menuHeight - 4;
+    const top = placement === "below" ? bottom + gap : rect.top - menuHeight - gap;
     const rawLeft = align === "end" ? rect.right - menuWidth : rect.left;
     const left = Math.min(Math.max(8, rawLeft), window.innerWidth - menuWidth - 8);
     setPosition({ top, left, placement });
-  }, [align, minWidth]);
+  }, [align, minWidth, anchor, gap]);
 
   const close = React.useCallback((returnFocus = true) => {
     setOpen(false);
@@ -181,6 +188,7 @@ export function Menu({ label, trigger, triggerClassName, items, align = "end", m
         ref={triggerRef}
         type="button"
         aria-label={label}
+        title={title}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
