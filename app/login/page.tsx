@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AiesecHuman, Alert, Button, Link } from "@/components/aiesec";
-import { SignedOutToast } from "@/components/app/SignedOutToast";
 import { AppMark } from "@/components/brand/Logo";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { safeReturnTo } from "@/lib/auth/oauth";
@@ -49,7 +48,11 @@ export default async function LoginPage({ searchParams }: Props) {
                 {error.body}
               </Alert>
             )}
-            {signedOut && !error && <SignedOutToast />}
+            {signedOut && !error && (
+              <Alert tone="success" title="You're signed out" live>
+                See you next time.
+              </Alert>
+            )}
             <div className="flex flex-col gap-3">
               <Button as="a" href={loginHref} variant="primary" size="lg" block>
                 Continue with AIESEC

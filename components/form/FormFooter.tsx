@@ -46,7 +46,6 @@ export function FormFooter({ slug, formTitle }: { /** Absent in the builder's pr
     <footer className="flex flex-col items-center gap-3 border-t border-border pt-6 text-center ae-caption text-text-muted">
       <p className="m-0">Never submit passwords through AIESEC Forms.</p>
       <div className="flex flex-col gap-1">
-        <p className="m-0">This content is neither created nor endorsed by AIESEC Forms.</p>
         <p className="m-0">
           {slug ? (
             <button type="button" className={linkClass} onClick={openContact}>

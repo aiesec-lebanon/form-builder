@@ -466,7 +466,6 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                   </Alert>
                 )}
 
-                {/* Like Google Forms: Back / Next or Send, the page progress, and Clear form. */}
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
                   <div className="flex w-full gap-3 sm:w-auto">
                     {currentIndex > 0 && (
@@ -474,8 +473,6 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                         Back
                       </Button>
                     )}
-                    {/* Separate keys: reusing one <button> would turn the clicked Next into a submit
-                        button before the browser finishes the click, and send the form. */}
                     {isLast ? (
                       <Button key="send" type="submit" variant="primary" size="lg" loading={status === "sending"} className="flex-1 sm:flex-none">
                         {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
@@ -486,21 +483,22 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                       </Button>
                     )}
                   </div>
-                  <div className="flex min-w-0 flex-1 items-center gap-4">
-                    {multiPage && doc.settings.showProgressBar && (
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <Progress label={`Page ${currentIndex + 1} of ${pages.length}`} hideLabel value={currentIndex + 1} max={pages.length} size="sm" tone="accent" className="max-w-56 min-w-16 flex-1" />
-                        <span className="whitespace-nowrap ae-body-sm text-text-muted" aria-hidden="true">
-                          Page {currentIndex + 1} of {pages.length}
-                        </span>
-                      </div>
-                    )}
-                    {questionCount > 0 && (
-                      <button type="button" className="ml-auto cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 ae-link ae-body-sm" onClick={clearForm} disabled={status === "sending"}>
-                        Clear form
-                      </button>
-                    )}
-                  </div>
+
+                  {multiPage && doc.settings.showProgressBar && (
+                    <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+                      <Progress label={`Page ${currentIndex + 1} of ${pages.length}`} hideLabel value={currentIndex + 1} max={pages.length} size="sm" tone="accent" className="max-w-56 min-w-16 flex-1" />
+                      <span className="whitespace-nowrap ae-body-sm text-text-muted" aria-hidden="true">
+                        Page {currentIndex + 1} of {pages.length}
+                      </span>
+                    </div>
+                  )}
+
+                  {questionCount > 0 && (
+                    <button type="button" className="ml-auto cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 ae-link ae-body-sm" onClick={clearForm} disabled={status === "sending"}>
+                      Clear form
+                    </button>
+                  )}
+
                 </div>
               </div>
             </form>
