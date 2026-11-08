@@ -3,8 +3,7 @@
 import { ArrowLeft, CircleCheck, Lock } from "lucide-react";
 import * as React from "react";
 
-import { Alert, Button, cx, Modal, Progress } from "@/components/aiesec";
-import { RequiredLegend } from "@/components/app/RequiredMark";
+import { Alert, Button, cx, Modal, Progress, RequiredNote } from "@/components/aiesec";
 import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { computeVisibility, visibleFields } from "@/lib/forms/logic";
@@ -401,7 +400,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                   </button>
                 </p>
               )}
-              {hasRequired && questionCount > 0 && <RequiredLegend />}
+              {hasRequired && questionCount > 0 && <RequiredNote />}
             </header>
 
             {pageErrors.length > 0 && (

@@ -3,11 +3,10 @@
 import { CircleCheck, FileSpreadsheet } from "lucide-react";
 import * as React from "react";
 
-import { Alert, Button, RadioGroup, TextField, useToast } from "@/components/aiesec";
+import { Alert, Button, RadioGroup, RequiredNote, TextField, useToast } from "@/components/aiesec";
 import { addGoogleDrive, addGoogleSheet, addPostgres, addSupabase, addWebhook } from "@/actions/destinations";
 import { googlePickerSession, setGoogleFolderLocation } from "@/actions/google";
 import { CopyBlock } from "@/components/app/CopyBlock";
-import { RequiredLegend, requiredLabel } from "@/components/app/RequiredMark";
 import { POSTGRES_TABLE_SQL, SUPABASE_TABLE_SQL } from "@/lib/destinations/sql";
 import type { DestinationSummary, DestinationType } from "@/lib/destinations/types";
 
@@ -152,7 +151,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
       ) : (
         <form ref={formRef} id="setup-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <p className="ae-body-sm text-text-muted">{meta.blurb}</p>
-          {(type === "webhook" || type === "supabase" || type === "postgres") && <RequiredLegend />}
+          {(type === "webhook" || type === "supabase" || type === "postgres") && <RequiredNote />}
           {error && (
             <Alert tone="danger" title="Not connected yet" live>
               {error}
@@ -240,17 +239,17 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           )}
 
           {type === "webhook" && (
-            <TextField label={requiredLabel("Webhook URL")} required type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Use an https:// address. Each response arrives as a signed JSON POST." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
+            <TextField label="Webhook URL" required type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" hint="Use an https:// address. Each response arrives as a signed JSON POST." value={values.url ?? ""} onChange={set("url")} error={fieldErrors.url} autoFocus />
           )}
 
           {type === "supabase" && (
             <>
-              <TextField label={requiredLabel("Project URL")} required type="url" placeholder="https://abcdefgh.supabase.co" value={values.projectUrl ?? ""} onChange={set("projectUrl")} error={fieldErrors.projectUrl} autoFocus />
+              <TextField label="Project URL" required type="url" placeholder="https://abcdefgh.supabase.co" value={values.projectUrl ?? ""} onChange={set("projectUrl")} error={fieldErrors.projectUrl} autoFocus />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label={requiredLabel("Table")} required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
-                <TextField label={requiredLabel("Schema")} required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
+                <TextField label="Table" required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
+                <TextField label="Schema" required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
               </div>
-              <TextField label={requiredLabel("Secret key")} required type="password" autoComplete="off" hint="Project Settings → API Keys → secret key. Stored encrypted; never shown again." value={values.apiKey ?? ""} onChange={set("apiKey")} error={fieldErrors.apiKey} />
+              <TextField label="Secret key" required type="password" autoComplete="off" hint="Project Settings → API Keys → secret key. Stored encrypted; never shown again." value={values.apiKey ?? ""} onChange={set("apiKey")} error={fieldErrors.apiKey} />
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer ae-label">Create the table first (SQL editor)</summary>
                 <div className="pt-3">
@@ -263,7 +262,7 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
           {type === "postgres" && (
             <>
               <TextField
-                label={requiredLabel("Connection string")}
+                label="Connection string"
                 required
                 type="password"
                 autoComplete="off"
@@ -275,8 +274,8 @@ export function SetupSheet({ type, formId, onClose, onDestinations, googleConfig
                 autoFocus
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField label={requiredLabel("Table")} required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
-                <TextField label={requiredLabel("Schema")} required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
+                <TextField label="Table" required value={values.table ?? ""} onChange={set("table")} error={fieldErrors.table} />
+                <TextField label="Schema" required value={values.schema ?? ""} onChange={set("schema")} error={fieldErrors.schema} />
               </div>
               <details className="rounded-md border border-border p-3">
                 <summary className="cursor-pointer ae-label">Create the table first</summary>

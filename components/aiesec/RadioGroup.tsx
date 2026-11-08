@@ -1,6 +1,6 @@
 'use client';
 import * as React from 'react';
-import { FieldError } from './Field';
+import { FieldError, RequiredMark } from './Field';
 import { cx } from './utils';
 
 export interface RadioProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -63,7 +63,10 @@ export function RadioGroup({ legend, name, options, value, defaultValue, onChang
   const errorId = error ? `${baseId}-error` : undefined;
   return (
     <fieldset className={cx('ae-fieldset', className)} aria-describedby={[errorId, hintId].filter(Boolean).join(' ') || undefined} disabled={disabled}>
-      <legend className="ae-fieldset__legend ae-label">{legend}</legend>
+      <legend className="ae-fieldset__legend ae-label">
+        {legend}
+        {required && <RequiredMark />}
+      </legend>
       {hint && (
         <p id={hintId} className="ae-field__hint ae-body-sm">
           {hint}

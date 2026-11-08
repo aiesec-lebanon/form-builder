@@ -20,8 +20,10 @@ export interface NavbarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'ch
   logoLabel?: string;
   /** Primary destinations, five or fewer. */
   items?: NavbarItem[];
-  /** Always-visible actions on the right, e.g. a Sign in button or an Avatar. */
+  /** Calls to action on the right, e.g. Sign in and Join AIESEC; below 1024px they move into the menu. */
   actions?: React.ReactNode;
+  /** The signed-in person's ProfileMenu; stays in the bar at every width. */
+  profile?: React.ReactNode;
   /** Sticks to the top while scrolling. */
   sticky?: boolean;
   /** aria-label of the nav landmark. Default "Main". */
@@ -30,11 +32,12 @@ export interface NavbarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'ch
   linkComponent?: React.ElementType;
 }
 
-/** The site header: logo, main navigation and actions; below 1024px the links move into a menu. */
-export function Navbar({ logo, logoHref = '/', logoLabel = 'AIESEC home', items = [], actions, sticky = false, navLabel = 'Main', linkComponent, className, ...rest }: NavbarProps) {
+/** The site header: logo, main navigation, actions and the profile button; below 1024px the links and actions move into a menu. */
+export function Navbar({ logo, logoHref = '/', logoLabel = 'AIESEC home', items = [], actions, profile, sticky = false, navLabel = 'Main', linkComponent, className, ...rest }: NavbarProps) {
   const L = useLinkComponent(linkComponent);
   const [open, setOpen] = React.useState(false);
   const drawerId = React.useId();
+  const hasMenu = items.length > 0 || !!actions;
 
   React.useEffect(() => {
     if (!open) return;
@@ -69,7 +72,8 @@ export function Navbar({ logo, logoHref = '/', logoLabel = 'AIESEC home', items 
           </nav>
         )}
         {actions && <div className="ae-navbar__actions">{actions}</div>}
-        {items.length > 0 && (
+        {profile && <div className="ae-navbar__profile">{profile}</div>}
+        {hasMenu && (
           <Button
             variant="ghost"
             iconOnly
@@ -83,11 +87,12 @@ export function Navbar({ logo, logoHref = '/', logoLabel = 'AIESEC home', items 
           </Button>
         )}
       </div>
-      {items.length > 0 && (
+      {hasMenu && (
         <div id={drawerId} className="ae-navbar__drawer" hidden={!open}>
-          <nav className="ae-container" aria-label={navLabel}>
-            {links(() => setOpen(false))}
-          </nav>
+          <div className="ae-container">
+            {items.length > 0 && <nav aria-label={navLabel}>{links(() => setOpen(false))}</nav>}
+            {actions && <div className="ae-navbar__actions">{actions}</div>}
+          </div>
         </div>
       )}
     </header>

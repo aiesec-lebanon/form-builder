@@ -12,7 +12,7 @@ export interface TextareaProps extends FieldBaseProps, React.TextareaHTMLAttribu
 
 /** A labelled multi-line input for answers longer than a line (motivation letters, feedback). */
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { label, hideLabel, hint, error, optional, id, className, rows = 4, maxLength, showCount = false, value, defaultValue, onChange, disabled, ...rest },
+  { label, hideLabel, hint, error, optional: _optional, required, id, className, rows = 4, maxLength, showCount = false, value, defaultValue, onChange, disabled, ...rest },
   ref,
 ) {
   const autoId = React.useId();
@@ -29,7 +29,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(fun
     ) : null;
 
   return (
-    <Field id={inputId} label={label} hideLabel={hideLabel} hint={hint} error={error} optional={optional} className={className} after={count}>
+    <Field id={inputId} label={label} hideLabel={hideLabel} hint={hint} error={error} required={required} className={className} after={count}>
       {(describedBy) => (
         <div className="ae-input ae-input--multiline" data-invalid={error || over ? 'true' : undefined} data-disabled={disabled ? 'true' : undefined}>
           <textarea
@@ -43,6 +43,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(fun
             value={value}
             defaultValue={defaultValue}
             disabled={disabled}
+            required={required}
             onChange={(event) => {
               setLength(event.target.value.length);
               onChange?.(event);

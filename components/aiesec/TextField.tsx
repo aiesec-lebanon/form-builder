@@ -13,7 +13,7 @@ export interface TextFieldProps extends FieldBaseProps, Omit<React.InputHTMLAttr
 
 /** A labelled single-line input. `type="password"` adds a show/hide toggle. */
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, hideLabel, hint, error, optional, iconStart, size = 'md', id, className, type = 'text', disabled, ...rest },
+  { label, hideLabel, hint, error, optional: _optional, required, iconStart, size = 'md', id, className, type = 'text', disabled, ...rest },
   ref,
 ) {
   const autoId = React.useId();
@@ -22,7 +22,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(func
   const isPassword = type === 'password';
 
   return (
-    <Field id={inputId} label={label} hideLabel={hideLabel} hint={hint} error={error} optional={optional} className={className}>
+    <Field id={inputId} label={label} hideLabel={hideLabel} hint={hint} error={error} required={required} className={className}>
       {(describedBy) => (
         <div
           className={cx('ae-input', size !== 'md' && `ae-input--${size}`, type === 'date' && 'ae-input--date')}
@@ -38,6 +38,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(func
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             disabled={disabled}
+            required={required}
             {...rest}
           />
           {isPassword && (

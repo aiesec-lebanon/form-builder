@@ -1,27 +1,28 @@
-import NextLink from "next/link";
-
+import { Navbar } from "@/components/aiesec";
 import { AppMark } from "@/components/brand/Logo";
 import type { CurrentUser } from "@/lib/auth/current-user";
 
 import { UserMenu } from "./UserMenu";
 
+/** The app header: the design system Navbar with the product mark and the account ProfileMenu. */
 export function AppHeader({ user }: { user: CurrentUser }) {
   return (
-    <header className="sticky top-0 z-[1100] border-b border-border bg-bg">
-      <div className="ae-container flex h-16 items-center justify-between gap-4">
-        <NextLink href="/forms" aria-label="AIESEC Forms home" className="no-underline">
+    <Navbar
+      sticky
+      logoHref="/forms"
+      logoLabel="AIESEC Forms home"
+      logo={
+        <>
           <span className="sm:hidden">
             <AppMark compact />
           </span>
           <span className="hidden sm:inline">
             <AppMark />
           </span>
-        </NextLink>
-        <div className="flex items-center gap-1">
-          <UserMenu user={user} />
-        </div>
-      </div>
-    </header>
+        </>
+      }
+      profile={<UserMenu user={user} />}
+    />
   );
 }
 

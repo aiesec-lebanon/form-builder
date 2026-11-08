@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import * as React from "react";
 
 import { cx } from "@/components/aiesec";
-import { RequiredMark } from "@/components/app/RequiredMark";
+import { RequiredMark } from "@/components/aiesec/Field";
 import type { ChoiceValue, GridValue } from "@/lib/forms/fields";
 import { OTHER_LABEL } from "@/lib/forms/fields/choice";
 import type { ChoiceField, Field, FieldOf, GridField, Option } from "@/lib/forms/schema";

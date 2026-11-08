@@ -4,7 +4,7 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { Button, ComboBox, FieldError, Group, Input, Label, ListBox, ListBoxItem, Popover, Select, SelectValue, Text } from "react-aria-components";
 
 import { ThemePortal, useThemeScope } from "@/components/aiesec/hooks";
-import { RequiredMark } from "@/components/app/RequiredMark";
+import { RequiredMark } from "@/components/aiesec/Field";
 import type { ChoiceValue } from "@/lib/forms/fields";
 import type { FieldOf } from "@/lib/forms/schema";
 

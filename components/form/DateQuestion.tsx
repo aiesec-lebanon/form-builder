@@ -1,31 +1,13 @@
 "use client";
 
 import { parseDate, type CalendarDate } from "@internationalized/date";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, CircleAlert } from "lucide-react";
-import {
-  Button,
-  Calendar,
-  CalendarCell,
-  CalendarGrid,
-  CalendarGridBody,
-  CalendarGridHeader,
-  CalendarHeaderCell,
-  DateInput,
-  DatePicker,
-  DateSegment,
-  Dialog,
-  FieldError,
-  Group,
-  Heading,
-  Label,
-  Popover,
-  Text,
-} from "react-aria-components";
+import { Calendar as CalendarIcon, CircleAlert } from "lucide-react";
+import { Button, Calendar, DateInput, DatePicker, DateSegment, Dialog, FieldError, Group, Label, Popover, Text } from "react-aria-components";
 
+import { CalendarViews } from "@/components/aiesec/CalendarViews";
+import { RequiredMark } from "@/components/aiesec/Field";
 import { ThemePortal, useThemeScope } from "@/components/aiesec/hooks";
 import type { FieldOf } from "@/lib/forms/schema";
-
-import { RequiredMark } from "@/components/app/RequiredMark";
 
 import { linkify } from "./linkify";
 
@@ -94,22 +76,10 @@ export function DateQuestion({ field, value, error, onChange, id, number }: Prop
         </span>
       </FieldError>
       <ThemePortal scope={scope}>
-        <Popover className="ae-popover" offset={6}>
+        <Popover className="ae-popover ae-popover--calendar" placement="bottom start" offset={6}>
           <Dialog className="ae-calendar-dialog">
             <Calendar className="ae-calendar">
-              <header className="ae-calendar__header">
-                <Button slot="previous" className="ae-calendar__nav">
-                  <ChevronLeft size={20} aria-hidden="true" className="ae-icon--flip" />
-                </Button>
-                <Heading className="ae-calendar__title ae-label" />
-                <Button slot="next" className="ae-calendar__nav">
-                  <ChevronRight size={20} aria-hidden="true" className="ae-icon--flip" />
-                </Button>
-              </header>
-              <CalendarGrid className="ae-calendar__grid">
-                <CalendarGridHeader>{(day) => <CalendarHeaderCell className="ae-calendar__weekday ae-caption">{day}</CalendarHeaderCell>}</CalendarGridHeader>
-                <CalendarGridBody>{(date) => <CalendarCell date={date} className="ae-calendar__cell ae-body-sm" />}</CalendarGridBody>
-              </CalendarGrid>
+              <CalendarViews />
             </Calendar>
           </Dialog>
         </Popover>

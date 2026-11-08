@@ -3,8 +3,7 @@
 import { CircleCheck } from "lucide-react";
 import * as React from "react";
 
-import { Alert, Button, RadioGroup, TextField, Textarea } from "@/components/aiesec";
-import { RequiredLegend, requiredLabel } from "@/components/app/RequiredMark";
+import { Alert, Button, RadioGroup, RequiredNote, TextField, Textarea } from "@/components/aiesec";
 import { REPORT_REASON_LABEL, REPORT_REASONS, type ReportReason } from "@/lib/forms/reports";
 
 /** "Does this form look suspicious?": the report itself. */
@@ -54,14 +53,14 @@ export function ReportForm({ slug }: { slug: string }) {
 
   return (
     <form noValidate onSubmit={submit} className="flex flex-col gap-6">
-      <RequiredLegend />
+      <RequiredNote />
       {error && (
         <Alert tone="danger" title="Not sent yet" live>
           {error}
         </Alert>
       )}
       <RadioGroup
-        legend={requiredLabel("What's wrong with this form?")}
+        legend="What's wrong with this form?"
         name="reason"
         value={reason}
         onChange={(value) => {

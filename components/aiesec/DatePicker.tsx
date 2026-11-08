@@ -1,25 +1,8 @@
 'use client';
-import { parseDate, type CalendarDate } from '@internationalized/date';
-import {
-  Button,
-  Calendar,
-  CalendarCell,
-  CalendarGrid,
-  CalendarGridBody,
-  CalendarGridHeader,
-  CalendarHeaderCell,
-  DateInput,
-  DatePicker as AriaDatePicker,
-  DateSegment,
-  Dialog,
-  FieldError,
-  Group,
-  Heading,
-  Label,
-  Popover,
-  Text,
-} from 'react-aria-components';
-import type { FieldBaseProps } from './Field';
+import { Button, Calendar as AriaCalendar, DateInput, DatePicker as AriaDatePicker, DateSegment, Dialog, FieldError, Group, Label, Popover, Text } from 'react-aria-components';
+import { toDate } from './Calendar';
+import { CalendarViews } from './CalendarViews';
+import { RequiredMark, type FieldBaseProps } from './Field';
 import { ThemePortal, useThemeScope } from './hooks';
 import { Icon } from './icons';
 import { cx } from './utils';
@@ -44,15 +27,12 @@ export interface DatePickerProps extends FieldBaseProps {
   className?: string;
 }
 
-const toDate = (iso?: string | null): CalendarDate | null | undefined => (iso === undefined ? undefined : iso ? parseDate(iso) : null);
-
-/** A labelled date field: type the date in the reader's locale or pick it from a calendar popover (React Aria). */
+/** A labelled date field: type the date in the reader's locale, or pick it from a calendar whose month and year zoom out for quick jumps (React Aria). */
 export function DatePicker({
   label,
   hideLabel,
   hint,
   error,
-  optional,
   value,
   defaultValue,
   onChange,
@@ -83,7 +63,7 @@ export function DatePicker({
     >
       <Label className={cx('ae-field__label', 'ae-label', hideLabel && 'ae-sr-only')}>
         {label}
-        {optional && <span className="ae-field__optional"> (optional)</span>}
+        {required && <RequiredMark />}
       </Label>
       <Group className={cx('ae-input', 'ae-date', size !== 'md' && `ae-input--${size}`)}>
         <DateInput className={cx('ae-date__input', size === 'sm' ? 'ae-body-sm' : 'ae-body')}>
@@ -106,23 +86,11 @@ export function DatePicker({
         </span>
       </FieldError>
       <ThemePortal scope={scope}>
-        <Popover className="ae-popover" offset={6}>
+        <Popover className="ae-popover ae-popover--calendar" placement="bottom start" offset={6}>
           <Dialog className="ae-calendar-dialog">
-            <Calendar className="ae-calendar">
-              <header className="ae-calendar__header">
-                <Button slot="previous" className="ae-calendar__nav">
-                  <Icon name="chevron-left" size={20} className="ae-icon--flip" />
-                </Button>
-                <Heading className="ae-calendar__title ae-label" />
-                <Button slot="next" className="ae-calendar__nav">
-                  <Icon name="chevron-right" size={20} className="ae-icon--flip" />
-                </Button>
-              </header>
-              <CalendarGrid className="ae-calendar__grid">
-                <CalendarGridHeader>{(day) => <CalendarHeaderCell className="ae-calendar__weekday ae-caption">{day}</CalendarHeaderCell>}</CalendarGridHeader>
-                <CalendarGridBody>{(date) => <CalendarCell date={date} className="ae-calendar__cell ae-body-sm" />}</CalendarGridBody>
-              </CalendarGrid>
-            </Calendar>
+            <AriaCalendar className="ae-calendar">
+              <CalendarViews />
+            </AriaCalendar>
           </Dialog>
         </Popover>
       </ThemePortal>

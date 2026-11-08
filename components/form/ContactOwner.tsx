@@ -3,8 +3,7 @@
 import { CircleCheck } from "lucide-react";
 import * as React from "react";
 
-import { Alert, Button, Modal, TextField, Textarea } from "@/components/aiesec";
-import { RequiredLegend, requiredLabel } from "@/components/app/RequiredMark";
+import { Alert, Button, Modal, RequiredNote, TextField, Textarea } from "@/components/aiesec";
 import { MESSAGE_LIMITS, validateMessage, type MessageField } from "@/lib/forms/messages";
 
 import { Turnstile } from "./Turnstile";
@@ -132,15 +131,15 @@ export function ContactOwnerDialog({ slug, open, onClose, turnstileSiteKey }: Pr
         </div>
       ) : (
         <form id={formId} noValidate onSubmit={send} className="flex flex-col gap-4 text-left">
-          <RequiredLegend />
+          <RequiredNote />
           {error && (
             <Alert tone="danger" title="Not sent yet" live>
               {error}
             </Alert>
           )}
-          <TextField label={requiredLabel("Your name")} required autoComplete="name" maxLength={MESSAGE_LIMITS.name} value={values.name} onChange={update("name")} error={fieldErrors.name} />
+          <TextField label="Your name" required autoComplete="name" maxLength={MESSAGE_LIMITS.name} value={values.name} onChange={update("name")} error={fieldErrors.name} />
           <TextField
-              label={requiredLabel("Your email")}
+              label="Your email"
               required
               type="email"
               inputMode="email"
@@ -151,8 +150,8 @@ export function ContactOwnerDialog({ slug, open, onClose, turnstileSiteKey }: Pr
               onChange={update("email")}
               error={fieldErrors.email}
             />
-          <TextField label={requiredLabel("Subject")} required maxLength={MESSAGE_LIMITS.subject} value={values.subject} onChange={update("subject")} error={fieldErrors.subject} />
-          <Textarea label={requiredLabel("Message")} required rows={5} maxLength={MESSAGE_LIMITS.body} showCount value={values.message} onChange={update("message")} error={fieldErrors.message} />
+          <TextField label="Subject" required maxLength={MESSAGE_LIMITS.subject} value={values.subject} onChange={update("subject")} error={fieldErrors.subject} />
+          <Textarea label="Message" required rows={5} maxLength={MESSAGE_LIMITS.body} showCount value={values.message} onChange={update("message")} error={fieldErrors.message} />
           <p className="ae-body-sm text-text-muted">Your name and email go to the form owner with your message, so they can reply. Never send passwords.</p>
           {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} theme="auto" onToken={onToken} resetKey={resetKey} />}
           {/* Honeypot for bots; people never see or reach it. */}

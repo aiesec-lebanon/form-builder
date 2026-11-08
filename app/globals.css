@@ -158,17 +158,25 @@
   .ae-field {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Required marker (see RequiredMark) and question numbers. */
-  .fb-required {
-    margin-inline-start: 0.25em;
-    color: var(--ae-danger-text);
-    font-weight: 700;
-    cursor: help;
-  }
+  /* Question numbers ("3."), before the label. */
   .fb-qnum {
     margin-inline-end: 0.4em;
     color: var(--ae-text-muted);
     font-variant-numeric: tabular-nums;
+  }
+  /* Account menu (design system ProfileMenu): mark the page you're on, and
+     show Sign out in red so it reads as leaving. */
+  .ae-profile-menu__item[aria-current="page"],
+  .ae-profile-menu__item[aria-current="page"] .ae-icon {
+    color: var(--ae-primary-text);
+    font-weight: 700;
+  }
+  .ae-profile-menu__end .ae-profile-menu__item,
+  .ae-profile-menu__end .ae-profile-menu__item .ae-icon {
+    color: var(--ae-danger-text);
+  }
+  .ae-profile-menu__end .ae-profile-menu__item:hover {
+    background: var(--ae-danger-soft);
   }
   /* Transparent embeds let the host page's background show through. */
   html:has(.fb-embed-transparent),

@@ -1,6 +1,6 @@
 'use client';
 import * as React from 'react';
-import { FieldError } from './Field';
+import { FieldError, RequiredMark } from './Field';
 import { cx } from './utils';
 
 export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -16,7 +16,7 @@ export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputE
 
 /** A single yes/no choice, or one option in a list where several can be chosen. */
 export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
-  { label, hint, indeterminate = false, error, id, className, disabled, ...rest },
+  { label, hint, indeterminate = false, error, id, className, disabled, required, ...rest },
   ref,
 ) {
   const autoId = React.useId();
@@ -40,11 +40,13 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(functi
           aria-describedby={[errorId, hintId].filter(Boolean).join(' ') || undefined}
           aria-invalid={error ? true : undefined}
           disabled={disabled}
+          required={required}
           {...rest}
         />
         <div className="ae-choice__text">
           <label htmlFor={inputId} className="ae-body">
             {label}
+            {required && <RequiredMark />}
           </label>
           {hint && (
             <span id={hintId} className="ae-choice__hint ae-body-sm">

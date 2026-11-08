@@ -7,7 +7,7 @@ import * as React from "react";
 
 import { Switch, cx } from "@/components/aiesec";
 import { Menu } from "@/components/app/Menu";
-import { RequiredMark } from "@/components/app/RequiredMark";
+import { RequiredMark } from "@/components/aiesec/Field";
 import { compatibleTypes, definitionOf } from "@/lib/forms/fields";
 import { isChoiceField, isGridField, LIMITS, type Field } from "@/lib/forms/schema";
 

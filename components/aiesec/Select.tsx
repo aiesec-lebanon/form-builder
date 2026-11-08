@@ -1,6 +1,6 @@
 'use client';
 import { Button, FieldError, Label, ListBox, ListBoxItem, Popover, Select as AriaSelect, SelectValue, Text } from 'react-aria-components';
-import type { FieldBaseProps } from './Field';
+import { RequiredMark, type FieldBaseProps } from './Field';
 import { ThemePortal, useThemeScope } from './hooks';
 import { Icon } from './icons';
 import { cx } from './utils';
@@ -36,7 +36,6 @@ export function Select({
   hideLabel,
   hint,
   error,
-  optional,
   options,
   placeholder,
   value,
@@ -66,7 +65,7 @@ export function Select({
     >
       <Label className={cx('ae-field__label', 'ae-label', hideLabel && 'ae-sr-only')}>
         {label}
-        {optional && <span className="ae-field__optional"> (optional)</span>}
+        {required && <RequiredMark announce />}
       </Label>
       <Button className={cx('ae-input', 'ae-select', size !== 'md' && `ae-input--${size}`)}>
         <SelectValue className={cx('ae-select__value', size === 'sm' ? 'ae-body-sm' : 'ae-body')}>

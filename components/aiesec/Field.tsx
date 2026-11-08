@@ -12,12 +12,14 @@ export interface FieldBaseProps {
   hint?: React.ReactNode;
   /** Error message; also sets aria-invalid. Say what went wrong and how to fix it. */
   error?: React.ReactNode;
-  /** Marks the field "(optional)". Mark optional fields, not required ones. */
+  /** @deprecated Optional fields are no longer marked; set `required` on required ones (red asterisk). Removed in 4.0.0. */
   optional?: boolean;
 }
 
 interface FieldProps extends FieldBaseProps {
   id: string;
+  /** Adds the red asterisk after the label. */
+  required?: boolean;
   className?: string;
   /** Extra line under the control (e.g. a character count). */
   after?: React.ReactNode;
@@ -25,7 +27,7 @@ interface FieldProps extends FieldBaseProps {
 }
 
 /** Internal: label, control, hint and error wiring shared by every text-like field. */
-export function Field({ id, label, hideLabel, hint, error, optional, className, after, children }: FieldProps) {
+export function Field({ id, label, hideLabel, hint, error, required, className, after, children }: FieldProps) {
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
@@ -33,7 +35,7 @@ export function Field({ id, label, hideLabel, hint, error, optional, className, 
     <div className={cx('ae-field', className)}>
       <label htmlFor={id} className={cx('ae-field__label', 'ae-label', hideLabel && 'ae-sr-only')}>
         {label}
-        {optional && <span className="ae-field__optional"> (optional)</span>}
+        {required && <RequiredMark />}
       </label>
       {children(describedBy)}
       {hint && (
@@ -58,5 +60,20 @@ export function FieldError({ id, children }: { id?: string; children?: React.Rea
         {children}
       </span>
     </p>
+  );
+}
+
+/**
+ * Internal: the red asterisk after a required field's label. Screen readers skip it and hear "required" from the control;
+ * `announce` adds that word for controls that can't carry `required` themselves (the Select button).
+ */
+export function RequiredMark({ announce = false }: { announce?: boolean }) {
+  return (
+    <>
+      <span className="ae-required" aria-hidden="true">
+        *
+      </span>
+      {announce && <span className="ae-sr-only"> (required)</span>}
+    </>
   );
 }
