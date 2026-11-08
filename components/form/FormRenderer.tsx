@@ -4,7 +4,6 @@ import { ArrowLeft, CircleCheck, Lock } from "lucide-react";
 import * as React from "react";
 
 import { Alert, Button, cx, Progress } from "@/components/aiesec";
-import { PoweredByAiesec } from "@/components/brand/Logo";
 import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { computeVisibility, visibleFields } from "@/lib/forms/logic";
@@ -410,9 +409,11 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
           </>
         )}
 
-        <footer className="flex flex-col items-start gap-3 border-t border-border pt-6">
-          <PoweredByAiesec height={24} />
-          <p className="ae-caption text-text-muted">Never share passwords in a form.</p>
+        <footer className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border pt-6 ae-caption text-text-muted">
+          <p>Never share passwords in a form.</p>
+          <a href="/privacy" target="_blank" rel="noopener" className="ae-link">
+            How responses are handled
+          </a>
         </footer>
       </div>
     </div>

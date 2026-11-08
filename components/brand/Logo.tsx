@@ -30,16 +30,3 @@ export function AppMark({ compact = false }: { compact?: boolean }) {
     </span>
   );
 }
-
-const POWERED_RATIO = 1182 / 267.5;
-
-/** "Powered by AIESEC" endorsement, swapping to the white-text variant on dark surfaces. */
-export function PoweredByAiesec({ height = 28 }: { height?: number }) {
-  const width = Math.round(height * POWERED_RATIO);
-  return (
-    <span className="inline-block">
-      <Image src="/brand/powered-by-aiesec-blue.svg" alt="Powered by AIESEC" width={width} height={height} className="block dark:hidden" unoptimized />
-      <Image src="/brand/powered-by-aiesec-white-blue.svg" alt="Powered by AIESEC" width={width} height={height} className="hidden dark:block" unoptimized />
-    </span>
-  );
-}
