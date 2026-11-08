@@ -2,12 +2,10 @@ import NextLink from "next/link";
 
 import { AppMark } from "@/components/brand/Logo";
 import type { CurrentUser } from "@/lib/auth/current-user";
-import type { ThemePreference } from "@/lib/theme";
 
-import { ThemeMenu } from "./ThemeMenu";
 import { UserMenu } from "./UserMenu";
 
-export function AppHeader({ user, theme }: { user: CurrentUser; theme: ThemePreference }) {
+export function AppHeader({ user }: { user: CurrentUser }) {
   return (
     <header className="sticky top-0 z-[1100] border-b border-border bg-bg">
       <div className="ae-container flex h-16 items-center justify-between gap-4">
@@ -20,7 +18,6 @@ export function AppHeader({ user, theme }: { user: CurrentUser; theme: ThemePref
           </span>
         </NextLink>
         <div className="flex items-center gap-1">
-          <ThemeMenu theme={theme} />
           <UserMenu user={user} />
         </div>
       </div>
