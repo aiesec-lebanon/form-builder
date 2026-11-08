@@ -75,6 +75,7 @@ model Form {
   invites       FormInvite[]
   destinations  Destination[]
   respondents   FormRespondent[]
+  reports       FormReport[]
 
   @@index([ownerId, deletedAt])
   @@index([deletedAt])
@@ -211,4 +212,23 @@ model FormRespondent {
 
   @@id([formId, respondentKey])
   @@map("form_respondents")
+}
+
+/// A respondent's report about a form ("Does this form look suspicious?").
+/// Reviewed by platform admins on /admin/activity?tab=reports; goes with its form.
+model FormReport {
+  id         String    @id @default(uuid()) @db.Uuid
+  formId     String    @map("form_id") @db.Uuid
+  reason     String
+  details    String?
+  /// Optional email the reporter left for follow-up.
+  contact    String?
+  ipHash     String?   @map("ip_hash")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([reviewedAt, createdAt])
+  @@map("form_reports")
 }

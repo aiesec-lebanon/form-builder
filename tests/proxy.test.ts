@@ -52,6 +52,7 @@ describe("proxy gate", () => {
   it("lets public routes through with security headers", async () => {
     const response = await proxy(request("/f/abc123"));
     expect(response.status).toBe(200);
+    for (const path of ["/terms", "/privacy", "/f/abc123/report"]) expect((await proxy(request(path))).status).toBe(200);
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");

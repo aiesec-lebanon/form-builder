@@ -5,7 +5,7 @@ import { AppMark } from "@/components/brand/Logo";
 
 export const metadata: Metadata = { title: "Privacy" };
 
-const UPDATED = "8 November 2026";
+const UPDATED = "9 November 2026";
 
 export default function PrivacyPage() {
   return (
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">Google access</h2>
           <p className="ae-body">
-            When a form owner connects Google, AIESEC Forms asks only for permission to work with files it creates (the <code className="ae-code">drive.file</code> scope). It creates a response Sheet and an uploads folder, adds rows and receives uploads there, and cannot see anything else in the owner&apos;s Drive. Owners can disconnect at any time in Settings or in their Google account.
+            When a form owner connects Google, AIESEC Forms asks only for permission to work with files it creates or that the owner picks in Google&apos;s file chooser (the <code className="ae-code">drive.file</code> scope). It keeps its files in an &ldquo;AIESEC Forms&rdquo; folder, creates response Sheets and upload folders there (or adds a tab to a Sheet the owner picked), adds rows, receives and names uploads, and cannot see anything else in the owner&apos;s Drive. Owners can disconnect at any time in Settings or in their Google account.
           </p>
           <p className="ae-body">
             AIESEC Forms&apos; use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.
@@ -67,6 +67,13 @@ export default function PrivacyPage() {
           <h2 className="ae-h3">Forms that ask you to sign in with AIESEC</h2>
           <p className="ae-body">
             Some forms ask you to sign in with AIESEC before answering. AIESEC Forms then reads your name, email, AIESEC ID and whether you have a current role. It keeps them in an encrypted cookie in your browser for 12 hours and doesn&apos;t store them. The form tells you if its owner records who responded. In that case your name, email and AIESEC ID are sent with your answers to the owner&apos;s destination. Forms that take one response per person keep a one-way code showing that a response was sent, without your name or ID.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="ae-h3">Contacting a form&apos;s owner and reporting a form</h2>
+          <p className="ae-body">
+            Every form has &ldquo;Contact form owner&rdquo;, which shows the owner&apos;s name and AIESEC email to whoever clicks it. &ldquo;Report&rdquo; sends us the reason you choose, any details you add and, if you give it, your email so we can follow up, with a one-way hash of your IP address to stop abuse. The platform team uses reports only to review the form.
           </p>
         </section>
 

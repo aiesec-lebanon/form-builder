@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
 // Pages and actions still authorize on their own; this only keeps the
 // signed-out out early.
 
-const PUBLIC_PREFIXES = ["/login", "/unauthorized", "/privacy", "/f/", "/embed/", "/api/auth/", "/api/health", "/api/f/", "/api/cron/"];
+const PUBLIC_PREFIXES = ["/login", "/unauthorized", "/privacy", "/terms", "/f/", "/embed/", "/api/auth/", "/api/health", "/api/f/", "/api/cron/"];
 
 function isPublic(pathname: string): boolean {
   if (pathname === "/") return true;

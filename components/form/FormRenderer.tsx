@@ -3,13 +3,14 @@
 import { ArrowLeft, CircleCheck, Lock } from "lucide-react";
 import * as React from "react";
 
-import { Alert, Button, cx, Progress } from "@/components/aiesec";
+import { Alert, Button, cx, Modal, Progress } from "@/components/aiesec";
 import type { ClosedReason } from "@/lib/forms/availability";
 import { collectsAnswer, validateAnswers } from "@/lib/forms/fields";
 import { computeVisibility, visibleFields } from "@/lib/forms/logic";
 import { allFields, type FormDocument } from "@/lib/forms/schema";
 import { formThemeAttribute } from "@/lib/forms/theme";
 
+import { FormFooter } from "./FormFooter";
 import { linkify } from "./linkify";
 import { NotYou } from "./NotYou";
 import { Question } from "./Question";
@@ -83,6 +84,7 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
   const [restored, setRestored] = React.useState(false);
   const [busyUploads, setBusyUploads] = React.useState<Set<string>>(new Set());
   const [honeypot, setHoneypot] = React.useState("");
+  const [confirmClear, setConfirmClear] = React.useState(false);
   // Bot check: the latest token, and a waiter for a submit that comes before the first token.
   const botCheck = Boolean(turnstileSiteKey) && mode !== "preview";
   const turnstileToken = React.useRef<string | null>(null);
@@ -312,6 +314,12 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
     setTurnstileReset((count) => count + 1);
   };
 
+  /** "Clear form": asks first when there's something to lose. */
+  const clearForm = () => {
+    if (Object.keys(answers).length === 0) return startOver();
+    setConfirmClear(true);
+  };
+
   const upload = React.useMemo(
     () => ({
       mode,
@@ -383,16 +391,12 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
               {restored && (
                 <p className="ae-body-sm text-text-muted">
                   We kept your answers from last time.{" "}
-                  <button type="button" className="ae-link cursor-pointer border-0 bg-transparent p-0" onClick={startOver}>
+                  <button type="button" className="ae-link cursor-pointer border-0 bg-transparent p-0" onClick={clearForm}>
                     Clear form
                   </button>
                 </p>
               )}
             </header>
-
-            {multiPage && doc.settings.showProgressBar && (
-              <Progress label={`Page ${currentIndex + 1} of ${pages.length}`} value={currentIndex + 1} max={pages.length} showValue valueText={`${currentIndex + 1} of ${pages.length}`} tone="accent" />
-            )}
 
             {pageErrors.length > 0 && (
               <div ref={summaryRef} tabIndex={-1} className="outline-none">
@@ -462,25 +466,41 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
                   </Alert>
                 )}
 
-                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  {currentIndex > 0 ? (
-                    <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(currentIndex - 1)}>
-                      Back
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                  {/* Separate keys: reusing one <button> would turn the clicked Next into a submit
-                      button before the browser finishes the click, and send the form. */}
-                  {isLast ? (
-                    <Button key="send" type="submit" variant="primary" size="lg" loading={status === "sending"} className="w-full sm:w-auto">
-                      {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
-                    </Button>
-                  ) : (
-                    <Button key="next" variant="primary" size="lg" onClick={next} className="w-full sm:w-auto">
-                      Next
-                    </Button>
-                  )}
+                {/* Like Google Forms: Back / Next or Send, the page progress, and Clear form. */}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+                  <div className="flex w-full gap-3 sm:w-auto">
+                    {currentIndex > 0 && (
+                      <Button variant="tertiary" size="lg" iconStart={<ArrowLeft size={20} aria-hidden="true" />} onClick={() => goTo(currentIndex - 1)}>
+                        Back
+                      </Button>
+                    )}
+                    {/* Separate keys: reusing one <button> would turn the clicked Next into a submit
+                        button before the browser finishes the click, and send the form. */}
+                    {isLast ? (
+                      <Button key="send" type="submit" variant="primary" size="lg" loading={status === "sending"} className="flex-1 sm:flex-none">
+                        {status === "failed" ? "Try again" : doc.settings.submitLabel || "Send response"}
+                      </Button>
+                    ) : (
+                      <Button key="next" variant="primary" size="lg" onClick={next} className="flex-1 sm:flex-none">
+                        Next
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    {multiPage && doc.settings.showProgressBar && (
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <Progress label={`Page ${currentIndex + 1} of ${pages.length}`} hideLabel value={currentIndex + 1} max={pages.length} size="sm" tone="accent" className="max-w-56 min-w-16 flex-1" />
+                        <span className="whitespace-nowrap ae-body-sm text-text-muted" aria-hidden="true">
+                          Page {currentIndex + 1} of {pages.length}
+                        </span>
+                      </div>
+                    )}
+                    {questionCount > 0 && (
+                      <button type="button" className="ml-auto cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 ae-link ae-body-sm" onClick={clearForm} disabled={status === "sending"}>
+                        Clear form
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </form>
@@ -489,13 +509,34 @@ export function FormRenderer({ doc, mode, slug, publishedRevision, renderToken, 
           </>
         )}
 
-        <footer className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-border pt-6 ae-caption text-text-muted">
-          <p>Never share passwords in a form.</p>
-          <a href="/privacy" target="_blank" rel="noopener" className="ae-link">
-            How responses are handled
-          </a>
-        </footer>
+        <FormFooter slug={mode === "preview" ? undefined : slug} formTitle={doc.title} />
       </div>
+
+      <Modal
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        title="Clear form?"
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setConfirmClear(false)} data-autofocus>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setConfirmClear(false);
+                startOver();
+                requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
+              }}
+            >
+              Clear form
+            </Button>
+          </>
+        }
+      >
+        <p className="ae-body">This removes your answers from all questions and can&apos;t be undone.</p>
+      </Modal>
     </div>
   );
 }

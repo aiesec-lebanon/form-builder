@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { formatCount, shortDate } from "@/lib/format";
 import { describeUserAgent } from "@/lib/request";
 
+import { ReportsList } from "./ReportsList";
+
 export const metadata: Metadata = { title: "Activity", robots: { index: false } };
 
 const PAGE_SIZE = 50;
@@ -24,12 +26,15 @@ const EVENT_LABELS: Record<string, string> = {
   "form.trashed": "Moved a form to trash",
   "form.restored": "Restored a form",
   "form.ownership_transferred": "Transferred ownership",
+  "form.reported": "Reported a form",
+  "form.report_reviewed": "Reviewed a report",
   "collaborator.added": "Added an editor",
   "collaborator.removed": "Removed an editor",
   "destination.added": "Connected a destination",
   "destination.removed": "Removed a destination",
   "google.connected": "Connected Google",
   "google.disconnected": "Disconnected Google",
+  "google.folder_moved": "Moved the AIESEC Forms folder",
 };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -64,11 +69,11 @@ function When({ date }: { date: Date }) {
 export default async function ActivityPage({ searchParams }: Props) {
   await requireAdmin();
   const params = await searchParams;
-  const tab = params.tab === "all" ? "all" : "signins";
+  const tab = params.tab === "all" ? "all" : params.tab === "reports" ? "reports" : "signins";
   const before = typeof params.before === "string" && /^\d{1,19}$/.test(params.before) ? BigInt(params.before) : undefined;
 
   const since = daysAgo(7);
-  const [events, members, signIns, forms, liveForms] = await Promise.all([
+  const [events, members, signIns, forms, liveForms, openReports] = await Promise.all([
     db.auditEvent.findMany({
       where: { ...(tab === "signins" ? { type: "auth.sign_in" } : {}), ...(before ? { id: { lt: before } } : {}) },
       orderBy: { id: "desc" },
@@ -79,6 +84,7 @@ export default async function ActivityPage({ searchParams }: Props) {
     db.auditEvent.count({ where: { type: "auth.sign_in", createdAt: { gte: since } } }),
     db.form.count({ where: { deletedAt: null } }),
     db.form.count({ where: { deletedAt: null, publishedAt: { not: null }, acceptingResponses: true } }),
+    db.formReport.count({ where: { reviewedAt: null } }),
   ]);
   const rows = events.slice(0, PAGE_SIZE);
   const hasMore = events.length > PAGE_SIZE;
@@ -86,9 +92,9 @@ export default async function ActivityPage({ searchParams }: Props) {
   const formIds = [...new Set(rows.filter((row) => row.targetType === "form" && row.targetId).map((row) => row.targetId as string))];
   const formTitles = new Map((formIds.length ? await db.form.findMany({ where: { id: { in: formIds } }, select: { id: true, title: true } }) : []).map((form) => [form.id, form.title]));
 
-  const tabLink = (id: "signins" | "all", label: string) => (
+  const tabLink = (id: "signins" | "all" | "reports", label: string) => (
     <NextLink
-      href={`/admin/activity${id === "all" ? "?tab=all" : ""}`}
+      href={`/admin/activity${id === "signins" ? "" : `?tab=${id}`}`}
       aria-current={tab === id ? "page" : undefined}
       className={cx("inline-flex h-10 items-center rounded-md px-3 ae-label no-underline", tab === id ? "bg-surface text-text shadow-[var(--ae-shadow-xs),inset_0_0_0_1px_var(--ae-border)]" : "text-text-muted hover:bg-fill hover:text-text")}
     >
@@ -113,9 +119,12 @@ export default async function ActivityPage({ searchParams }: Props) {
       <nav aria-label="Activity views" className="flex gap-1">
         {tabLink("signins", "Sign-ins")}
         {tabLink("all", "All activity")}
+        {tabLink("reports", openReports > 0 ? `Reports (${formatCount(openReports)})` : "Reports")}
       </nav>
 
-      {rows.length === 0 ? (
+      {tab === "reports" ? (
+        <ReportsList />
+      ) : rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border-strong p-8 ae-body text-text-muted">Nothing here yet.</p>
       ) : (
         <div className="ae-table-wrap">
@@ -179,18 +188,20 @@ export default async function ActivityPage({ searchParams }: Props) {
         </div>
       )}
 
-      <div className="flex gap-3">
-        {before && (
-          <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity${tab === "all" ? "?tab=all" : ""}`}>
-            Newest
-          </NextLink>
-        )}
-        {hasMore && (
-          <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity?${tab === "all" ? "tab=all&" : ""}before=${rows[rows.length - 1].id.toString()}`}>
-            Older
-          </NextLink>
-        )}
-      </div>
+      {tab !== "reports" && (
+        <div className="flex gap-3">
+          {before && (
+            <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity${tab === "all" ? "?tab=all" : ""}`}>
+              Newest
+            </NextLink>
+          )}
+          {hasMore && (
+            <NextLink className="ae-btn ae-btn--secondary ae-body no-underline" href={`/admin/activity?${tab === "all" ? "tab=all&" : ""}before=${rows[rows.length - 1].id.toString()}`}>
+              Older
+            </NextLink>
+          )}
+        </div>
+      )}
     </div>
   );
 }

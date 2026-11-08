@@ -21,6 +21,8 @@ export type AuditType =
   | "form.trashed"
   | "form.restored"
   | "form.ownership_transferred"
+  | "form.reported"
+  | "form.report_reviewed"
   | "collaborator.added"
   | "collaborator.removed"
   | "destination.added"

@@ -4,6 +4,7 @@ import type { AccessProblem } from "@/lib/forms/respondents";
 import type { FormDocument } from "@/lib/forms/schema";
 import { formThemeAttribute } from "@/lib/forms/theme";
 
+import { FormFooter } from "./FormFooter";
 import { NotYou } from "./NotYou";
 
 // What people see instead of an AIESEC-only form when they can't answer yet
@@ -87,11 +88,7 @@ export function RespondentGate({ doc, slug, reason, respondent, signInError }: P
           )}
           {action}
         </section>
-        <footer className="border-t border-border pt-6 ae-caption text-text-muted">
-          <a href="/privacy" target="_blank" rel="noopener" className="ae-link">
-            How responses are handled
-          </a>
-        </footer>
+        <FormFooter slug={slug} formTitle={doc.title} />
       </div>
     </div>
   );
