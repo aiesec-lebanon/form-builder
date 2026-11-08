@@ -12,6 +12,7 @@ const QUERY = `query CurrentPerson {
     id
     full_name
     email
+    aiesec_email
     profile_photo
     current_office { id name }
     current_positions { id title office { id name tag } role { id name } }
@@ -24,6 +25,8 @@ const personSchema = z.object({
   id,
   full_name: z.string().nullish(),
   email: z.string().nullish(),
+  /** The member's AIESEC work email (e.g. name@aiesec.net); "email" is the EXPA sign-in address. */
+  aiesec_email: z.string().nullish(),
   profile_photo: z.string().nullish(),
   current_office: z.object({ id, name: z.string().nullish() }).nullish(),
   current_positions: z

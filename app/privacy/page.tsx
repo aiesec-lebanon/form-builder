@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <section className="flex flex-col gap-3">
           <h2 className="ae-h3">What we keep</h2>
           <ul className="m-0 flex list-disc flex-col gap-2 pl-6 ae-body">
-            <li>For members who sign in: name, EXPA ID, email, profile photo, entity and position from EXPA, and when they last signed in.</li>
+            <li>For members who sign in: name, EXPA ID, EXPA sign-in email and AIESEC email, profile photo, entity and position from EXPA, and when they last signed in.</li>
             <li>Form definitions: questions, settings, and who can edit each form.</li>
             <li>Destination settings. Passwords, keys and tokens are encrypted.</li>
             <li>How many responses a form received and whether deliveries are working, never the answers.</li>

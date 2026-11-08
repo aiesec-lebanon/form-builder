@@ -7,10 +7,10 @@ import { db } from "@/lib/db";
 export type Person = { id: string; name: string; email: string | null; photoUrl: string | null; detail: string | null };
 export type Collaboration = { owner: Person; editors: Person[]; invites: Array<{ id: string; email: string }>; viewerIsOwner: boolean; viewerId: string };
 
-type UserRow = { id: string; fullName: string; email: string | null; photoUrl: string | null; positionTitle: string | null; officeName: string | null };
+type UserRow = { id: string; fullName: string; email: string | null; aiesecEmail: string | null; photoUrl: string | null; positionTitle: string | null; officeName: string | null };
 
 function person(user: UserRow): Person {
-  return { id: user.id, name: user.fullName, email: user.email, photoUrl: user.photoUrl, detail: [user.positionTitle, user.officeName].filter(Boolean).join(" · ") || null };
+  return { id: user.id, name: user.fullName, email: user.aiesecEmail ?? user.email, photoUrl: user.photoUrl, detail: [user.positionTitle, user.officeName].filter(Boolean).join(" · ") || null };
 }
 
 export async function loadCollaboration(formId: string, viewerId: string): Promise<Collaboration | null> {

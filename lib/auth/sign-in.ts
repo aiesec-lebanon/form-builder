@@ -13,10 +13,13 @@ export function profileFromPerson(person: GisPerson) {
   const positions = activePositions(person);
   const primary = positions[0];
   const email = person.email?.trim().toLowerCase() || null;
+  const aiesec = person.aiesec_email?.trim().toLowerCase() ?? "";
+  const aiesecEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(aiesec) && aiesec.length <= 254 ? aiesec : null;
   const officeId = person.current_office?.id ?? primary?.office?.id ?? null;
   return {
     fullName: person.full_name?.trim() || `Member ${person.id}`,
     email,
+    aiesecEmail,
     photoUrl: person.profile_photo?.startsWith("https://") ? person.profile_photo : null,
     officeId: officeId && /^\d+$/.test(officeId) ? BigInt(officeId) : null,
     officeName: person.current_office?.name ?? primary?.office?.name ?? null,
@@ -34,16 +37,16 @@ export async function upsertUser(personId: string, profile: ReturnType<typeof pr
 }
 
 /**
- * Every address we know for a person: the EXPA email (often personal) and the
- * Google accounts they connected (their AIESEC work email).
+ * Every address we know for a person: the EXPA sign-in email (often personal),
+ * their AIESEC email from EXPA and the Google accounts they connected.
  */
-export async function knownEmails(user: Pick<User, "id" | "email">): Promise<string[]> {
+export async function knownEmails(user: Pick<User, "id" | "email"> & { aiesecEmail?: string | null }): Promise<string[]> {
   const connections = await db.googleConnection.findMany({ where: { userId: user.id }, select: { email: true } });
-  return [...new Set([user.email, ...connections.map((connection) => connection.email)].filter((email): email is string => Boolean(email)).map((email) => email.toLowerCase()))];
+  return [...new Set([user.aiesecEmail, user.email, ...connections.map((connection) => connection.email)].filter((email): email is string => Boolean(email)).map((email) => email.toLowerCase()))];
 }
 
 /** Converts invites addressed to any of the user's emails into editor access. Returns how many. */
-export async function acceptPendingInvites(user: Pick<User, "id" | "email">, emails?: string[]): Promise<number> {
+export async function acceptPendingInvites(user: Pick<User, "id" | "email"> & { aiesecEmail?: string | null }, emails?: string[]): Promise<number> {
   const addresses = emails ?? (await knownEmails(user));
   if (addresses.length === 0) return 0;
   const invites = await db.formInvite.findMany({

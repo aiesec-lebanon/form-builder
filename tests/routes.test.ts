@@ -281,6 +281,11 @@ describe("AIESEC sign-in", () => {
     expect(await unsealRespondent(response.cookies.get(RESPONDENT_COOKIE)?.value)).toEqual({ aiesecId: "5099966", name: "Lina Haddad", email: "lina@example.org", member: true });
     expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
     expect(mocks.upsertUser).not.toHaveBeenCalled();
+    // Members are recorded with their AIESEC email when EXPA has one.
+    mocks.exchangeCode.mockResolvedValueOnce(tokens);
+    mocks.fetchCurrentPerson.mockResolvedValueOnce({ ...person, email: "lina@gmail.com", aiesec_email: "lina.haddad@aiesec.net" });
+    const member = await callback.GET(callbackRequest("code=c&state=s1", { fb_oauth_state: "s1", fb_oauth_return_to: "/f/recruitment", [PURPOSE_COOKIE]: "respond" }));
+    expect(await unsealRespondent(member.cookies.get(RESPONDENT_COOKIE)?.value)).toMatchObject({ email: "lina.haddad@aiesec.net" });
   });
 
   it("sends respondents back to the form when sign-in fails", async () => {
@@ -363,6 +368,9 @@ describe("Google connection routes", () => {
     expect(location.searchParams.has("login_hint")).toBe(false);
     mocks.getCurrentUser.mockResolvedValueOnce({ ...user, email: "lina@aiesec.net" });
     expect(new URL((await googleConnect.GET(new NextRequest(`${ORIGIN}/api/google/connect`))).headers.get("location") as string).searchParams.get("login_hint")).toBe("lina@aiesec.net");
+    // Their AIESEC email from EXPA is suggested even when they sign in to EXPA with a personal address.
+    mocks.getCurrentUser.mockResolvedValueOnce({ ...user, email: "lina@gmail.com", workEmail: "lina.haddad@aiesec.net" });
+    expect(new URL((await googleConnect.GET(new NextRequest(`${ORIGIN}/api/google/connect`))).headers.get("location") as string).searchParams.get("login_hint")).toBe("lina.haddad@aiesec.net");
     vi.stubEnv("GOOGLE_ALLOWED_DOMAINS", "*");
     resetEnvCache();
     mocks.getCurrentUser.mockResolvedValueOnce(user);

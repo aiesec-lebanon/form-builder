@@ -55,7 +55,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 const actorSelect = { select: { fullName: true, photoUrl: true, officeName: true, positionTitle: true, aiesecPersonId: true } } as const;
-const reportInclude = { form: { select: { id: true, title: true, slug: true, acceptingResponses: true, deletedAt: true, owner: { select: { fullName: true, email: true } } } } } as const;
+const reportInclude = { form: { select: { id: true, title: true, slug: true, acceptingResponses: true, deletedAt: true, owner: { select: { fullName: true, email: true, aiesecEmail: true } } } } } as const;
 
 export default async function ActivityPage({ searchParams }: Props) {
   await requireAdmin();

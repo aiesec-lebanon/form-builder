@@ -12,7 +12,7 @@ export type ReportRow = {
   contact: string | null;
   createdAt: Date;
   reviewedAt: Date | null;
-  form: { id: string; title: string; slug: string; acceptingResponses: boolean; deletedAt: Date | null; owner: { fullName: string; email: string | null } };
+  form: { id: string; title: string; slug: string; acceptingResponses: boolean; deletedAt: Date | null; owner: { fullName: string; email: string | null; aiesecEmail: string | null } };
 };
 
 /** Reports from the public form footer, one page at a time. */
@@ -57,7 +57,7 @@ export function ReportsTable({ query, reports, filtered }: { query: ActivityQuer
                       </a>
                       <span className="ae-caption text-text-muted">
                         By {form.owner.fullName}
-                        {form.owner.email ? ` · ${form.owner.email}` : ""}
+                        {(form.owner.aiesecEmail ?? form.owner.email) ? ` · ${form.owner.aiesecEmail ?? form.owner.email}` : ""}
                       </span>
                       {!formOpen && <Badge tone="neutral">{form.deletedAt ? "In trash" : "Closed"}</Badge>}
                     </span>

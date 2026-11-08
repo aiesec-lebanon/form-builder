@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   if (respond) {
     // Identity for this form only: a sealed cookie, no app account, nothing stored.
     const profile = profileFromPerson(person);
-    const sealed = await sealRespondent({ aiesecId: person.id, name: profile.fullName, email: profile.email, member: activePositions(person).length > 0 });
+    const sealed = await sealRespondent({ aiesecId: person.id, name: profile.fullName, email: profile.aiesecEmail ?? profile.email, member: activePositions(person).length > 0 });
     logger.info("auth.respondent_sign_in", { member: activePositions(person).length > 0 });
     const response = NextResponse.redirect(new URL(returnTo, baseUrl()));
     response.cookies.set(RESPONDENT_COOKIE, sealed, respondentCookieOptions());

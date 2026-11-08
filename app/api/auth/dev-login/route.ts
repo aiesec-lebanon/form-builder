@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 // a production build can never enable it.
 
 const DEV_PEOPLE = {
-  "1": { fullName: "Dev Member", email: "dev.member@example.test", officeName: "AIESEC in Lebanon", positionTitle: "LCVP Marketing" },
-  "2": { fullName: "Second Member", email: "second.member@example.test", officeName: "AIESEC in Beirut", positionTitle: "Team Leader" },
+  "1": { fullName: "Dev Member", email: "dev.member@example.test", aiesecEmail: null, officeName: "AIESEC in Lebanon", positionTitle: "LCVP Marketing" },
+  "2": { fullName: "Second Member", email: "second.member@example.test", aiesecEmail: null, officeName: "AIESEC in Beirut", positionTitle: "Team Leader" },
 } as const;
 
 export async function GET(request: NextRequest) {

@@ -72,6 +72,8 @@ describe("current user (database mocked through the client)", () => {
     // The connected AIESEC Google account is their work email.
     m.db.user.findUnique.mockResolvedValueOnce(userRow({ googleConnections: [{ email: "lina.haddad@aiesec.net" }] }));
     expect(await fresh.getCurrentUser()).toMatchObject({ workEmail: "lina.haddad@aiesec.net" });
+    m.db.user.findUnique.mockResolvedValueOnce(userRow({ aiesecEmail: "lina@aiesec.net", googleConnections: [{ email: "lcvp.marketing@aiesec.net" }] }));
+    expect(await fresh.getCurrentUser()).toMatchObject({ workEmail: "lina@aiesec.net", email: "lina@example.org" });
     m.db.user.findUnique.mockResolvedValueOnce(userRow({ aiesecPersonId: 1n }));
     expect(await fresh.getCurrentUser()).toBeNull();
     m.cookies.clear();
@@ -112,6 +114,7 @@ describe("AIESEC identity", () => {
     expect(activePositions(result)).toHaveLength(1);
     const [, init] = (fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
     expect((init.headers as Record<string, string>).Authorization).toBe("member-token");
+    expect(JSON.parse(String(init.body)).query).toContain("aiesec_email");
   });
 
   it("separates rejected tokens from outages", async () => {
@@ -129,11 +132,15 @@ describe("AIESEC identity", () => {
     expect(profileFromPerson({ id: "1", full_name: "  ", email: " Lina@Example.org ", profile_photo: "http://insecure", current_positions: [] })).toEqual({
       fullName: "Member 1",
       email: "lina@example.org",
+      aiesecEmail: null,
       photoUrl: null,
       officeId: null,
       officeName: null,
       positionTitle: null,
     });
+    // The AIESEC work email is kept apart from the (often personal) EXPA sign-in email.
+    expect(profileFromPerson({ id: "1", email: "lina@gmail.com", aiesec_email: " Lina.Haddad@AIESEC.net " })).toMatchObject({ email: "lina@gmail.com", aiesecEmail: "lina.haddad@aiesec.net" });
+    expect(profileFromPerson({ id: "1", aiesec_email: "not an email" }).aiesecEmail).toBeNull();
     expect(profileFromPerson({ id: "1", profile_photo: "https://cdn/x.jpg", current_office: { id: "55", name: "Lebanon" }, current_positions: [{ id: "1", title: null, office: { id: "100" }, role: { id: "3", name: "Member" } }] })).toMatchObject({
       photoUrl: "https://cdn/x.jpg",
       officeId: 55n,
@@ -168,6 +175,10 @@ describe("sign-in records (database mocked)", () => {
     expect(await signIn.acceptPendingInvites(userRow() as never)).toBe(1);
     expect(m.tx.formInvite.delete).toHaveBeenCalledTimes(2);
     expect(m.db.formInvite.findMany.mock.calls.at(-1)?.[0].where.email).toEqual({ in: ["lina@example.org", "lina.haddad@aiesec.net"] });
+    m.db.googleConnection.findMany.mockResolvedValueOnce([]);
+    m.db.formInvite.findMany.mockResolvedValueOnce([]);
+    await signIn.acceptPendingInvites(userRow({ aiesecEmail: "lina.h@aiesec.net" }) as never);
+    expect(m.db.formInvite.findMany.mock.calls.at(-1)?.[0].where.email).toEqual({ in: ["lina.h@aiesec.net", "lina@example.org"] });
   });
 
   it("exports the shared helpers", () => {

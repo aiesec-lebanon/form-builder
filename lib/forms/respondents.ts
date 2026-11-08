@@ -21,9 +21,9 @@ export async function currentRespondent(): Promise<CurrentRespondent | null> {
   if (respondent) return { ...respondent, source: "respondent" };
   const session = await getSession();
   if (!session) return null;
-  const user = await db.user.findUnique({ where: { id: session.uid }, select: { aiesecPersonId: true, fullName: true, email: true, positionTitle: true } });
+  const user = await db.user.findUnique({ where: { id: session.uid }, select: { aiesecPersonId: true, fullName: true, email: true, aiesecEmail: true, positionTitle: true } });
   if (!user) return null;
-  return { aiesecId: user.aiesecPersonId.toString(), name: user.fullName, email: user.email, member: Boolean(user.positionTitle), source: "app" };
+  return { aiesecId: user.aiesecPersonId.toString(), name: user.fullName, email: user.aiesecEmail ?? user.email, member: Boolean(user.positionTitle), source: "app" };
 }
 
 export type AccessProblem = "sign_in" | "members_only" | "already_responded";

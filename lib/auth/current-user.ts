@@ -14,7 +14,7 @@ export type CurrentUser = {
   aiesecPersonId: string;
   fullName: string;
   email: string | null;
-  /** The AIESEC Google account they connected (their work email), if any. */
+  /** Their AIESEC work email: from EXPA, or else the AIESEC Google account they connected. */
   workEmail: string | null;
   photoUrl: string | null;
   officeName: string | null;
@@ -42,7 +42,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     aiesecPersonId: user.aiesecPersonId.toString(),
     fullName: user.fullName,
     email: user.email,
-    workEmail: user.googleConnections[0]?.email ?? null,
+    workEmail: user.aiesecEmail ?? user.googleConnections[0]?.email ?? null,
     photoUrl: user.photoUrl,
     officeName: user.officeName,
     positionTitle: user.positionTitle,

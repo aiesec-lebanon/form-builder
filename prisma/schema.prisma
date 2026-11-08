@@ -19,8 +19,10 @@ model User {
   id             String   @id @default(uuid()) @db.Uuid
   aiesecPersonId BigInt   @unique @map("aiesec_person_id")
   fullName       String   @map("full_name")
-  /// Lower-cased. Used to match collaborator invites.
+  /// The EXPA sign-in email (often personal). Lower-cased. Used to match collaborator invites.
   email          String?
+  /// The AIESEC work email from EXPA (aiesec_email), e.g. name@aiesec.net. Lower-cased. Preferred wherever an email is shown or matched.
+  aiesecEmail    String?  @map("aiesec_email")
   photoUrl       String?  @map("photo_url")
   officeId       BigInt?  @map("office_id")
   officeName     String?  @map("office_name")
