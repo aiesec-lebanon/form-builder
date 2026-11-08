@@ -28,7 +28,7 @@ const googleProblem = (error: unknown, fallback: string) => {
 
 /**
  * What the owner's browser needs to open Google Picker on one of their own
- * accounts (ADR-014): a short-lived access token (drive.file only), the
+ * accounts (ADR-016): a short-lived access token (drive.file only), the
  * browser API key and the project number. Picked files become accessible to us.
  */
 export async function googlePickerSession(connectionId: string): Promise<ActionResult<{ token: string; apiKey: string; appId: string }>> {

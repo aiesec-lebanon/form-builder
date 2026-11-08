@@ -1,6 +1,6 @@
 "use client";
 
-// Google Picker (ADR-014): the owner chooses a Sheet or folder in Google's own
+// Google Picker (ADR-016): the owner chooses a Sheet or folder in Google's own
 // chooser; with drive.file, whatever they pick becomes accessible to us.
 
 type PickerDoc = { id: string; name: string };
