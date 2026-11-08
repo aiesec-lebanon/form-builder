@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, ExternalLink, Link2, Mail, MoreHorizontal, PencilLine, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import { Copy, ExternalLink, Link2, MessageSquare, MoreHorizontal, PencilLine, RotateCcw, Trash2, TriangleAlert } from "lucide-react";
+import NextLink from "next/link";
 import * as React from "react";
 
 import { Card, useToast } from "@/components/aiesec";
@@ -29,7 +30,7 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
     ? [{ label: "Restore", icon: <RotateCcw size={16} />, onSelect: () => run(() => restoreForm(form.id), () => toast.show({ title: "Form restored" })) }]
     : [
         { label: "Edit", icon: <PencilLine size={16} />, href: `/forms/${form.id}/edit` },
-        { label: form.unreadMessages > 0 ? `Messages (${form.unreadMessages} new)` : "Messages", icon: <Mail size={16} />, href: `/forms/${form.id}/edit?tab=messages` },
+        { label: form.unreadMessages > 0 ? `Messages (${form.unreadMessages} new)` : "Messages", icon: <MessageSquare size={16} />, href: `/forms/${form.id}/edit?tab=messages` },
         ...(form.status !== "draft"
           ? [
               {
@@ -73,16 +74,32 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
           : []),
       ];
 
+  const unread = trashed ? 0 : form.unreadMessages;
+  const unreadLabel = `${unread} new ${unread === 1 ? "message" : "messages"}`;
   const meta = (
     <>
       {trashed && form.deletedAt ? <RelativeTime value={form.deletedAt} prefix="Moved to trash" /> : <RelativeTime value={form.updatedAt} prefix="Edited" />}
       {!form.isOwner && <span> · Shared by {form.ownerName}</span>}
+      {/* Unread messages: an icon and a count in the corner, above the card's own link. */}
+      {unread > 0 && (
+        <NextLink
+          href={`/forms/${form.id}/edit?tab=messages`}
+          aria-label={unreadLabel}
+          title={unreadLabel}
+          className="absolute top-3 right-3 z-[2] inline-flex size-10 items-center justify-center rounded-full text-text-muted no-underline hover:bg-fill hover:text-text"
+        >
+          <MessageSquare size={20} aria-hidden="true" />
+          <span aria-hidden="true" className="absolute top-0.5 right-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] leading-none font-bold text-on-primary ring-2 ring-surface">
+            {unread > 99 ? "99+" : unread}
+          </span>
+        </NextLink>
+      )}
     </>
   );
 
   return (
     <Card
-      title={form.title}
+      title={unread > 0 ? <span className="block pr-10">{form.title}</span> : form.title}
       href={trashed ? undefined : `/forms/${form.id}/edit`}
       meta={meta}
       aria-busy={pending || undefined}
@@ -93,13 +110,7 @@ export function FormCard({ form, publicBaseUrl }: { form: DashboardForm; publicB
           {form.status !== "draft" && (
             <span className="ae-caption text-text-muted">
               {plural(form.responseCount, "response")}
-              {form.completionRate !== null && <span title="Views that ended in a response"> · {form.completionRate}% complete</span>}
-            </span>
-          )}
-          {form.unreadMessages > 0 && (
-            <span className="inline-flex items-center gap-1 ae-caption font-bold text-primary-text">
-              <Mail size={14} aria-hidden="true" />
-              {plural(form.unreadMessages, "new message")}
+              {form.completionRate !== null && <span title="Share of visits to the form that ended in a sent response"> · {form.completionRate}% response rate</span>}
             </span>
           )}
           {form.failing && (
