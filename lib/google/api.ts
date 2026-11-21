@@ -190,6 +190,14 @@ export async function getFile(token: string, fileId: string): Promise<DriveFile>
   return call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id,name,size,mimeType,parents,webViewLink,appProperties,trashed,driveId`);
 }
 
+/** What the connected account may do with a file, its shared-drive role included. */
+export type FileCapabilities = { canAddChildren?: boolean; canEdit?: boolean };
+
+/** A folder or file someone chose to save into, with what the account may do there. */
+export async function inspectFile(token: string, fileId: string): Promise<DriveFile & { capabilities?: FileCapabilities }> {
+  return call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id,name,mimeType,trashed,driveId,webViewLink,capabilities(canAddChildren,canEdit)`);
+}
+
 /** Renames a file and/or sets its app properties in one call. */
 export async function updateFile(token: string, fileId: string, patch: { name?: string; appProperties?: Record<string, string> }): Promise<void> {
   await call(token, `${DRIVE}/${encodeURIComponent(fileId)}?${ALL_DRIVES}&fields=id`, { method: "PATCH", body: JSON.stringify(patch) });

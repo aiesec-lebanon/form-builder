@@ -50,13 +50,13 @@ Each form has one **primary** destination that must accept a response before the
 
 | Destination | What arrives | What the owner sets up |
 | --- | --- | --- |
-| Google Sheets | One row per response: submitted at, response ID, then one column per question. Grids get one column per row. New questions are added as new columns at the end. | Connect Google in Settings. AIESEC Forms creates the Sheet. |
-| Google Drive | Uploaded files land in a folder AIESEC Forms creates, and the Sheet links to each file. | Same Google connection. |
+| Google Sheets | One row per response: submitted at, response ID, then one column per question. Grids get one column per row. New questions are added as new columns at the end. | Connect Google in Settings. AIESEC Forms creates the Sheet in the form's folder or in a folder the owner chooses, or adds a tab to a Sheet they already have. |
+| Google Drive | Uploaded files land in the form's folder or a folder the owner chooses, one subfolder per file question, and the Sheet links to each file. | Same Google connection. |
 | Webhook | A signed JSON `POST` for every response. | Any public HTTPS URL. |
 | Supabase | A row in the owner's own Supabase table, through the Data API. | Run the setup SQL shown in the app and paste the project's secret key. |
 | PostgreSQL | A row in the owner's own table, over TLS. | Run the setup SQL and paste a connection string. |
 
-Google access uses the `drive.file` scope, so AIESEC Forms can only see the files it created. Owner secrets (webhook signing secrets, database keys, Google tokens) are encrypted at rest with AES-256-GCM. Webhook, Supabase and Postgres hosts are checked on every connection, so a destination can't point at a private or internal network.
+Google access uses the `drive.file` scope, so AIESEC Forms can only see the files it created or the owner chose. Owners choose a folder or Sheet by pasting its link or browsing Drive, in My Drive or a shared drive. A pasted link is confirmed in Google's file chooser, which shows just that file. Choosing a folder or an existing Sheet needs `GOOGLE_API_KEY` and `GOOGLE_PROJECT_NUMBER`. Owner secrets (webhook signing secrets, database keys, Google tokens) are encrypted at rest with AES-256-GCM. Webhook, Supabase and Postgres hosts are checked on every connection, so a destination can't point at a private or internal network.
 
 ### Database table
 

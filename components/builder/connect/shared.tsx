@@ -7,7 +7,7 @@ export const DESTINATION_META: Record<DestinationType, { name: string; icon: Luc
   webhook: { name: "Webhook", icon: Webhook, blurb: "Signed JSON to any URL: Zapier, Make, n8n, Apps Script or your server." },
   supabase: { name: "Supabase", icon: Database, blurb: "Each response becomes a row in a table in your own Supabase project." },
   postgres: { name: "PostgreSQL", icon: Database, blurb: "Each response becomes a row in your own PostgreSQL database (Neon, RDS and others)." },
-  google_drive: { name: "Google Drive", icon: FolderOpen, blurb: "Uploaded files go to your form's folder in Google Drive." },
+  google_drive: { name: "Google Drive", icon: FolderOpen, blurb: "Uploaded files go to a Google Drive folder: your form's own, or one you choose in My Drive or a shared drive." },
 };
 
 export type GoogleAccount = { id: string; email: string; /** The account's AIESEC Forms folder, once made. */ rootFolderId: string | null };

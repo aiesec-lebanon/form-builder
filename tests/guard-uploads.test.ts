@@ -149,6 +149,7 @@ describe("abandoned uploads", () => {
   const day = 24 * 60 * 60 * 1000;
   const now = Date.parse("2026-11-20T00:00:00Z");
   const file = (id: string, ageDays: number, appProperties: Record<string, string> | undefined) => ({ id, createdTime: new Date(now - ageDays * day).toISOString(), appProperties });
+  const mine = { aiesecForms: "1", formId: "form-1" };
 
   it("renames and marks a sent response's files, and never throws", async () => {
     await finalizeUploads("form-1", []);
@@ -181,10 +182,11 @@ describe("abandoned uploads", () => {
     });
     google.listFolderFiles
       .mockResolvedValueOnce({
-        files: [file("old-orphan", 9, { aiesecForms: "1" }), file("sent", 9, { aiesecForms: "1", submitted: "1" }), file("recent", 2, { aiesecForms: "1" })],
+        files: [file("old-orphan", 9, mine), file("sent", 9, { ...mine, submitted: "1" }), file("recent", 2, mine)],
         nextPageToken: "p2",
       })
-      .mockResolvedValueOnce({ files: [file("owner-file", 30, undefined), file("old-orphan-2", 8, { aiesecForms: "1" })] });
+      // A folder the owner also chose for another form: that form's uploads are left to its own cleanup.
+      .mockResolvedValueOnce({ files: [file("owner-file", 30, undefined), file("other-form", 30, { aiesecForms: "1", formId: "form-9" }), file("old-orphan-2", 8, mine)] });
     google.trashFile.mockResolvedValue(undefined);
     expect(await cleanOrphanedUploads(now)).toEqual({ folders: 2, trashed: 2, failedFolders: 1 });
     expect(google.trashFile.mock.calls.map((call) => call[1])).toEqual(["old-orphan", "old-orphan-2"]);
@@ -193,7 +195,7 @@ describe("abandoned uploads", () => {
   it("also looks in each question's uploads folder", async () => {
     db.destination.findMany.mockResolvedValueOnce([{ id: "d1", formId: "form-1", googleConnectionId: "c1", config: { ...drive.config, questionFolders: { f_cv: "cv-folder", f_photo: "photo-folder" } } }]);
     google.googleAccessToken.mockResolvedValue("tok");
-    google.listFolderFiles.mockResolvedValueOnce({ files: [] }).mockResolvedValueOnce({ files: [file("cv-orphan", 9, { aiesecForms: "1" })] }).mockResolvedValueOnce({ files: [] });
+    google.listFolderFiles.mockResolvedValueOnce({ files: [] }).mockResolvedValueOnce({ files: [file("cv-orphan", 9, mine)] }).mockResolvedValueOnce({ files: [] });
     google.trashFile.mockResolvedValue(undefined);
     expect(await cleanOrphanedUploads(now)).toEqual({ folders: 1, trashed: 1, failedFolders: 0 });
     expect(google.listFolderFiles.mock.calls.map((call) => call[1])).toEqual(["folder-0001", "cv-folder", "photo-folder"]);

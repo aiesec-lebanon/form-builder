@@ -23,6 +23,7 @@ const m = vi.hoisted(() => ({
   addSheetTab: vi.fn(),
   writeHeaderRow: vi.fn(),
   ensureFormFolder: vi.fn(),
+  checkLocation: vi.fn(),
   tx: { destination: { delete: vi.fn(), findFirst: vi.fn(), update: vi.fn() } },
   db: {
     destination: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
@@ -40,6 +41,7 @@ vi.mock("@/lib/net/guard", async (original) => ({ ...(await original<typeof impo
 vi.mock("@/lib/google/tokens", () => ({ googleAccessToken: m.googleAccessToken }));
 vi.mock("@/lib/google/api", async (original) => ({ ...(await original<typeof import("@/lib/google/api")>()), createSpreadsheet: m.createSpreadsheet, createFolder: m.createFolder, moveToFolder: m.moveToFolder, formatSheet: m.formatSheet, getSpreadsheet: m.getSpreadsheet, addSheetTab: m.addSheetTab, writeHeaderRow: m.writeHeaderRow }));
 vi.mock("@/lib/google/folders", async (original) => ({ ...(await original<typeof import("@/lib/google/folders")>()), ensureFormFolder: m.ensureFormFolder }));
+vi.mock("@/lib/google/locations", () => ({ checkLocation: m.checkLocation }));
 vi.mock("@/lib/db", () => ({ db: m.db }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
@@ -193,10 +195,12 @@ describe("Google destinations", () => {
     m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
     m.googleAccessToken.mockResolvedValue("tok");
     const spreadsheetId = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
+    m.checkLocation.mockResolvedValueOnce({ ok: true, location: { id: spreadsheetId, name: "LC data", url: "https://docs.google.com/spreadsheets/d/x/edit", sharedDrive: true } });
     m.getSpreadsheet.mockResolvedValueOnce({ spreadsheetId, spreadsheetUrl: "https://docs.google.com/spreadsheets/d/x/edit#gid=0", title: "LC data", sheets: [{ sheetId: 0, title: "Recruitment Responses" }] });
     m.addSheetTab.mockResolvedValueOnce({ sheetId: 77, title: "Recruitment Responses (2)" });
     m.writeHeaderRow.mockResolvedValueOnce(undefined);
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toMatchObject({ ok: true, data: { notice: null } });
+    expect(m.checkLocation).toHaveBeenCalledWith("tok", spreadsheetId, "spreadsheet");
     expect(m.addSheetTab).toHaveBeenCalledWith("tok", spreadsheetId, "Recruitment Responses (2)");
     expect(m.writeHeaderRow).toHaveBeenCalledWith("tok", spreadsheetId, "Recruitment Responses (2)", expect.arrayContaining(["Submitted at"]));
     expect(m.formatSheet).toHaveBeenCalledWith("tok", spreadsheetId, 77, expect.any(Array));
@@ -205,8 +209,38 @@ describe("Google destinations", () => {
     expect(m.db.destination.create.mock.calls[0][0].data.config).toMatchObject({ spreadsheetId, sheetId: 77, sheetTitle: "Recruitment Responses (2)", spreadsheetUrl: "https://docs.google.com/spreadsheets/d/x/edit#gid=77" });
 
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId: "../etc" })).toEqual({ ok: false, error: "Choose the Sheet again." });
+    m.checkLocation.mockResolvedValueOnce({ ok: true, location: { id: spreadsheetId, name: "LC data", url: "https://x", sharedDrive: false } });
     m.getSpreadsheet.mockRejectedValueOnce(new GoogleApiError(404, "notFound", "Requested entity was not found."));
     expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toMatchObject({ ok: false });
+    // View-only Sheets, Excel files and Sheets never confirmed in Google's chooser are refused before anything is written.
+    m.checkLocation.mockResolvedValueOnce({ ok: false, needsAccess: false, message: "You can only view that Sheet." });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toEqual({ ok: false, error: "You can only view that Sheet." });
+    m.checkLocation.mockResolvedValueOnce({ ok: false, needsAccess: true });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", spreadsheetId })).toMatchObject({ ok: false, error: expect.stringContaining("confirm it in Google's chooser") });
+    expect(m.addSheetTab).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates the response Sheet straight in a folder the owner chose, shared drives included", async () => {
+    m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
+    m.googleAccessToken.mockResolvedValue("tok");
+    const folderId = "0AbCdEfGhIjKlUk9PVA";
+    m.checkLocation.mockResolvedValueOnce({ ok: true, location: { id: folderId, name: "AIESEC in Lebanon", url: `https://drive.google.com/drive/folders/${folderId}`, sharedDrive: true } });
+    m.createSpreadsheet.mockResolvedValueOnce({ spreadsheetId: "s1", spreadsheetUrl: "https://docs/s1", sheetId: 0, sheetTitle: "Responses" });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", folderId })).toMatchObject({ ok: true, data: { notice: null } });
+    expect(m.checkLocation).toHaveBeenCalledWith("tok", folderId, "folder");
+    expect(m.createSpreadsheet.mock.calls[0][1]).toEqual({ title: "Recruitment Responses", headers: expect.arrayContaining(["Submitted at"]), folderId });
+    expect(m.ensureFormFolder).not.toHaveBeenCalled();
+    // Not the form's own folder: uploads don't follow it unless the owner chooses it for them too.
+    const config = m.db.destination.create.mock.calls[0][0].data.config;
+    expect(config).toMatchObject({ spreadsheetId: "s1", columns: expect.any(Array) });
+    expect(config).not.toHaveProperty("formFolderId");
+
+    m.checkLocation.mockResolvedValueOnce({ ok: false, needsAccess: false, message: "You can only view that shared drive folder." });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", folderId })).toEqual({ ok: false, error: "You can only view that shared drive folder." });
+    m.checkLocation.mockResolvedValueOnce({ ok: false, needsAccess: true });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", folderId })).toMatchObject({ ok: false, error: expect.stringContaining("can't open that folder") });
+    expect(await actions.addGoogleSheet(FORM_ID, { connectionId: "c1", folderId: "../../etc" })).toEqual({ ok: false, error: "Choose the folder again." });
+    expect(m.createSpreadsheet).toHaveBeenCalledTimes(1);
   });
 
   it("keeps uploads in the form's folder, one subfolder per question", async () => {
@@ -221,6 +255,28 @@ describe("Google destinations", () => {
     expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false, error: expect.stringContaining("already") });
     m.db.googleConnection.findFirst.mockResolvedValueOnce(null);
     expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1" })).toMatchObject({ ok: false });
+  });
+
+  it("keeps uploads in a folder the owner chose, shared drives included", async () => {
+    m.db.googleConnection.findFirst.mockResolvedValue({ id: "c1" });
+    m.googleAccessToken.mockResolvedValue("tok");
+    const folderId = "1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVw";
+    m.checkLocation.mockResolvedValueOnce({ ok: true, location: { id: folderId, name: "CVs", url: `https://drive.google.com/drive/folders/${folderId}`, sharedDrive: true } });
+    expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1", folderId })).toMatchObject({ ok: true, data: { notice: null } });
+    expect(m.checkLocation).toHaveBeenCalledWith("tok", folderId, "folder");
+    expect(m.ensureFormFolder).not.toHaveBeenCalled();
+    expect(m.db.destination.create.mock.calls[0][0].data).toMatchObject({
+      type: "google_drive",
+      role: "files",
+      config: { folderId, folderUrl: `https://drive.google.com/drive/folders/${folderId}`, questionFolders: {} },
+    });
+    expect(m.db.destination.create.mock.calls[0][0].data.config).not.toHaveProperty("formFolderId");
+    expect(m.recordHealth).toHaveBeenCalledWith("new", { ok: true });
+
+    m.checkLocation.mockResolvedValueOnce({ ok: false, needsAccess: false, message: "That folder is in the Drive trash." });
+    expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1", folderId })).toEqual({ ok: false, error: "That folder is in the Drive trash." });
+    expect(await actions.addGoogleDrive(FORM_ID, { connectionId: "c1", folderId: "nope" })).toEqual({ ok: false, error: "Choose the folder again." });
+    expect(m.db.destination.create).toHaveBeenCalledTimes(1);
   });
 
   it("needs Google configured on the server", async () => {

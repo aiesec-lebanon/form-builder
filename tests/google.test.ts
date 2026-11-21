@@ -15,6 +15,7 @@ import {
   findFolder,
   formatSheet,
   headerWidth,
+  inspectFile,
   listFolderFiles,
   moveToFolder,
   sheetTitleById,
@@ -245,6 +246,15 @@ describe("Sheets and Drive client", () => {
     const [url, init] = vi.mocked(fetch).mock.calls.at(-1)!;
     expect(String(url)).toContain("/files/file?");
     expect(init).toMatchObject({ method: "PATCH", body: JSON.stringify({ name: "Lina_1.pdf", appProperties: { submitted: "1" } }) });
+  });
+
+  it("reads what the account may do with a chosen folder, shared drives included", async () => {
+    const fetchMock = stubFetch(json({ id: "f1", name: "Recruitment", mimeType: "application/vnd.google-apps.folder", driveId: "0AbC", capabilities: { canAddChildren: true } }));
+    expect(await inspectFile("tok", "f1")).toMatchObject({ driveId: "0AbC", capabilities: { canAddChildren: true } });
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.pathname).toBe("/drive/v3/files/f1");
+    expect(url.searchParams.get("supportsAllDrives")).toBe("true");
+    expect(url.searchParams.get("fields")).toContain("capabilities(canAddChildren,canEdit)");
   });
 
   it("raises readable errors and knows which to retry", async () => {

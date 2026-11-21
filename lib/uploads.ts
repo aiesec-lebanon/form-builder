@@ -170,7 +170,10 @@ export async function cleanOrphanedUploads(now = Date.now()): Promise<OrphanClea
         let pageToken: string | undefined;
         do {
           const page = await listFolderFiles(token, place, pageToken);
-          const orphans = page.files.filter((file) => file.appProperties?.aiesecForms === "1" && file.appProperties?.submitted !== "1" && Date.parse(file.createdTime) < cutoff);
+          // Only this form's uploads: owners can choose the same folder for several forms.
+          const orphans = page.files.filter(
+            (file) => file.appProperties?.aiesecForms === "1" && file.appProperties?.formId === folder.formId && file.appProperties?.submitted !== "1" && Date.parse(file.createdTime) < cutoff,
+          );
           for (const file of orphans) {
             if (trashed >= MAX_TRASHED_PER_FOLDER) break;
             await trashFile(token, file.id);

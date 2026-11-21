@@ -21,6 +21,8 @@ import { getFormAccess } from "@/lib/forms/access";
 import { parseDocument } from "@/lib/forms/schema";
 import { addSheetTab, createSpreadsheet, formatSheet, getSpreadsheet, uniqueTabTitle, writeHeaderRow } from "@/lib/google/api";
 import { ensureFormFolder, folderNotice } from "@/lib/google/folders";
+import { DRIVE_FILE_ID } from "@/lib/google/links";
+import { checkLocation, type LocationCheck } from "@/lib/google/locations";
 import { googleAccessToken } from "@/lib/google/tokens";
 import { logger } from "@/lib/logger";
 import { assertPublicHttpsUrl, BlockedHostError } from "@/lib/net/guard";
@@ -207,8 +209,19 @@ async function usableConnection(userId: string, connectionId: string) {
 
 const SPREADSHEET_ID = /^[A-Za-z0-9_-]{20,200}$/;
 
-/** Responses to a new Sheet in AIESEC Forms, or (spreadsheetId, picked in Google Picker) to a new tab of an existing one. */
-export async function addGoogleSheet(formId: string, input: { connectionId: string; spreadsheetId?: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
+/** Why a folder or Sheet the owner chose can't be used; "needsAccess" only happens if it wasn't confirmed in Google's chooser. */
+const locationProblem = (check: Exclude<LocationCheck, { ok: true }>, what: "folder" | "Sheet") =>
+  check.needsAccess ? `AIESEC Forms can't open that ${what} yet. Choose it again and confirm it in Google's chooser.` : check.message;
+
+/**
+ * Responses to a new Sheet, or (spreadsheetId: pasted or picked) to a new tab of
+ * an existing one. A new Sheet goes in the form's folder inside AIESEC Forms, or
+ * straight into folderId: a folder the owner chose, in My Drive or a shared drive.
+ */
+export async function addGoogleSheet(
+  formId: string,
+  input: { connectionId: string; spreadsheetId?: string; folderId?: string },
+): Promise<ActionResult<Destinations & { notice: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
   if (!googleConfigured()) return fail("Google isn't set up on this server yet.");
@@ -217,10 +230,14 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
   const doc = parseDocument(auth.form.draft);
   if (!doc) return fail("This form couldn't be read.");
   if (input.spreadsheetId !== undefined && !SPREADSHEET_ID.test(input.spreadsheetId)) return fail("Choose the Sheet again.");
+  if (input.folderId !== undefined && !DRIVE_FILE_ID.test(input.folderId)) return fail("Choose the folder again.");
   try {
     const token = await googleAccessToken(connection.id);
     const formName = doc.title.trim() || "Untitled form";
     if (input.spreadsheetId) {
+      // A Google Sheet this account can edit (not an Excel file, not view-only).
+      const usable = await checkLocation(token, input.spreadsheetId, "spreadsheet");
+      if (!usable.ok) return fail(locationProblem(usable, "Sheet"));
       // Like Google Forms: a new tab for this form; the Sheet's other tabs are left alone.
       const existing = await getSpreadsheet(token, input.spreadsheetId);
       const headers = initialHeaderRow(doc);
@@ -231,14 +248,23 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
       const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_sheets", name: "Google Sheets", config, googleConnectionId: connection.id });
       return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets"), notice: null });
     }
-    // AIESEC Forms / <form name> / <form name> Responses
-    const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: formName });
+    // <chosen folder> / <form name> Responses, or AIESEC Forms / <form name> / <form name> Responses.
+    // A chosen folder isn't recorded as the form's folder: uploads only share it when the owner chooses it for them too.
+    let place: { folderId: string; formFolderId?: string; notice: string | null };
+    if (input.folderId) {
+      const chosen = await checkLocation(token, input.folderId, "folder");
+      if (!chosen.ok) return fail(locationProblem(chosen, "folder"));
+      place = { folderId: chosen.location.id, notice: null };
+    } else {
+      const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: formName });
+      place = { folderId: folder.id, formFolderId: folder.id, notice: folderNotice(folder) };
+    }
     const headers = initialHeaderRow(doc);
-    const sheet = await createSpreadsheet(token, { title: `${formName} Responses`, headers, folderId: folder.id });
+    const sheet = await createSpreadsheet(token, { title: `${formName} Responses`, headers, folderId: place.folderId });
     await formatSheet(token, sheet.spreadsheetId, sheet.sheetId, headers).catch((error) => logger.warn("destination.sheet_format_failed", { formId, error }));
-    const config = { ...sheet, formFolderId: folder.id, columns: syncColumns([], doc).columns };
+    const config = { ...sheet, ...(place.formFolderId ? { formFolderId: place.formFolderId } : {}), columns: syncColumns([], doc).columns };
     const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_sheets", name: "Google Sheets", config, googleConnectionId: connection.id });
-    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets"), notice: folderNotice(folder) });
+    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_sheets"), notice: place.notice });
   } catch (error) {
     logger.warn("destination.sheet_create_failed", { formId, error });
     const result = classifyError(error);
@@ -246,29 +272,36 @@ export async function addGoogleSheet(formId: string, input: { connectionId: stri
   }
 }
 
-export async function addGoogleDrive(formId: string, input: { connectionId: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
+/**
+ * Uploads to the form's folder inside AIESEC Forms, or to folderId: a folder the
+ * owner chose, in My Drive or a shared drive. Either way each file question gets
+ * its own "<form name> <question> Uploads" folder inside it on its first upload.
+ */
+export async function addGoogleDrive(formId: string, input: { connectionId: string; folderId?: string }): Promise<ActionResult<Destinations & { notice: string | null }>> {
   const auth = await authorize(formId);
   if (!auth.ok) return fail(auth.error);
   if (!googleConfigured()) return fail("Google isn't set up on this server yet.");
   if (await db.destination.count({ where: { formId, role: "files" } })) return fail("This form already saves uploads to Google Drive.");
   const connection = await usableConnection(auth.user.id, input.connectionId);
   if (!connection) return fail("Connect your Google account first.");
+  if (input.folderId !== undefined && !DRIVE_FILE_ID.test(input.folderId)) return fail("Choose the folder again.");
   const doc = parseDocument(auth.form.draft);
   try {
     const token = await googleAccessToken(connection.id);
-    // AIESEC Forms / <form name>; each file question gets "<form name> <question> Uploads" on its first upload.
-    const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: doc?.title.trim() || "Untitled form" });
-    const destination = await insertDestination({
-      formId,
-      userId: auth.user.id,
-      type: "google_drive",
-      role: "files",
-      name: "Google Drive",
-      config: { folderId: folder.id, folderUrl: folder.url, formFolderId: folder.id, questionFolders: {} },
-      googleConnectionId: connection.id,
-    });
+    let config: { folderId: string; folderUrl: string; formFolderId?: string; questionFolders: Record<string, string> };
+    let notice: string | null = null;
+    if (input.folderId) {
+      const chosen = await checkLocation(token, input.folderId, "folder");
+      if (!chosen.ok) return fail(locationProblem(chosen, "folder"));
+      config = { folderId: chosen.location.id, folderUrl: chosen.location.url, questionFolders: {} };
+    } else {
+      const folder = await ensureFormFolder(token, { connectionId: connection.id, formId, title: doc?.title.trim() || "Untitled form" });
+      config = { folderId: folder.id, folderUrl: folder.url, formFolderId: folder.id, questionFolders: {} };
+      notice = folderNotice(folder);
+    }
+    const destination = await insertDestination({ formId, userId: auth.user.id, type: "google_drive", role: "files", name: "Google Drive", config, googleConnectionId: connection.id });
     await recordHealth(destination.id, { ok: true });
-    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_drive"), notice: folderNotice(folder) });
+    return ok({ destinations: await afterAdd(formId, auth.user.id, destination.id, "google_drive"), notice });
   } catch (error) {
     logger.warn("destination.folder_create_failed", { formId, error });
     const result = classifyError(error);

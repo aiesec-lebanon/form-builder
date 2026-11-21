@@ -2,7 +2,8 @@
 
 // Google Picker (ADR-016): the owner chooses a Sheet or folder in Google's own
 // chooser, from My Drive or a shared drive; with drive.file, whatever they pick
-// becomes accessible to us.
+// becomes accessible to us. A pasted link is confirmed the same way: the chooser
+// shows just that one file, and choosing it gives us access to it.
 
 type PickerDoc = { id: string; name: string };
 type PickerResponse = { action: string; docs?: PickerDoc[] };
@@ -16,6 +17,8 @@ interface DocsView {
   setEnableDrives(value: boolean): DocsView;
   /** Tab name in the chooser (newer Picker versions). */
   setLabel?(label: string): DocsView;
+  /** Shows only these files (comma-separated ids), wherever they are. Not combined with setEnableDrives or setParent. */
+  setFileIds?(fileIds: string): DocsView;
 }
 
 interface Picker {
@@ -38,7 +41,7 @@ interface PickerBuilder {
 interface PickerApi {
   PickerBuilder: new () => PickerBuilder;
   DocsView: new (viewId?: unknown) => DocsView;
-  ViewId: { FOLDERS: unknown; SPREADSHEETS: unknown };
+  ViewId: { DOCS: unknown; FOLDERS: unknown; SPREADSHEETS: unknown };
   DocsViewMode: { LIST: unknown };
   Action: { PICKED: string; CANCEL: string };
 }
@@ -79,24 +82,17 @@ function loadPicker(): Promise<PickerApi> {
   return loading;
 }
 
-/** Opens Google's chooser; resolves with the picked file, or null if the person closed it. */
-export async function pickFromDrive(session: PickerSession, kind: "folder" | "spreadsheet"): Promise<PickedFile | null> {
-  const api = await loadPicker();
+/** Shows the chooser with these views; resolves with the picked file, or null if the person closed it. */
+async function show(api: PickerApi, session: PickerSession, views: DocsView[], title: string): Promise<PickedFile | null> {
   return new Promise((resolve) => {
-    // Two tabs: the person's own Drive, and the shared drives they belong to.
-    const view = (sharedDrives: boolean) => {
-      const base = kind === "folder" ? new api.DocsView(api.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER_MIME) : new api.DocsView(api.ViewId.SPREADSHEETS).setMode(api.DocsViewMode.LIST);
-      const scoped = sharedDrives ? base.setEnableDrives(true) : base;
-      return scoped.setLabel?.(sharedDrives ? "Shared drives" : "My Drive") ?? scoped;
-    };
-    const picker = new api.PickerBuilder()
-      .addView(view(false))
-      .addView(view(true))
+    let builder = new api.PickerBuilder();
+    for (const view of views) builder = builder.addView(view);
+    const picker = builder
       .setOAuthToken(session.token)
       .setDeveloperKey(session.apiKey)
       .setAppId(session.appId)
       .setOrigin(window.location.origin)
-      .setTitle(kind === "folder" ? "Choose where the AIESEC Forms folder goes" : "Choose a Sheet")
+      .setTitle(title)
       .setCallback((data) => {
         if (data.action !== api.Action.PICKED && data.action !== api.Action.CANCEL) return;
         const doc = data.action === api.Action.PICKED ? data.docs?.[0] : undefined;
@@ -106,6 +102,33 @@ export async function pickFromDrive(session: PickerSession, kind: "folder" | "sp
       .build();
     picker.setVisible(true);
   });
+}
+
+/** Opens Google's chooser; resolves with the picked file, or null if the person closed it. */
+export async function pickFromDrive(session: PickerSession, kind: "folder" | "spreadsheet", title?: string): Promise<PickedFile | null> {
+  const api = await loadPicker();
+  // Two tabs: the person's own Drive, and the shared drives they belong to.
+  const view = (sharedDrives: boolean) => {
+    const base = kind === "folder" ? new api.DocsView(api.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER_MIME) : new api.DocsView(api.ViewId.SPREADSHEETS).setMode(api.DocsViewMode.LIST);
+    const scoped = sharedDrives ? base.setEnableDrives(true) : base;
+    return scoped.setLabel?.(sharedDrives ? "Shared drives" : "My Drive") ?? scoped;
+  };
+  return show(api, session, [view(false), view(true)], title ?? (kind === "folder" ? "Choose where the AIESEC Forms folder goes" : "Choose a Sheet"));
+}
+
+/**
+ * Google's chooser showing only the file behind a pasted link (in My Drive or a
+ * shared drive), so the owner can confirm it: with drive.file, that's what lets
+ * AIESEC Forms open it. Resolves with the confirmed file, or null if the person
+ * closed the chooser (or their account can't open the file, so it isn't shown).
+ */
+export async function confirmInDrive(session: PickerSession, fileId: string, kind: "folder" | "spreadsheet"): Promise<PickedFile | null> {
+  const api = await loadPicker();
+  const base = new api.DocsView(api.ViewId.DOCS);
+  if (typeof base.setFileIds !== "function") throw new Error("Google's file chooser can't show that link. Use Browse Drive instead.");
+  const only = base.setFileIds(fileId).setMode(api.DocsViewMode.LIST);
+  const view = kind === "folder" ? only.setIncludeFolders(true).setSelectFolderEnabled(true) : only;
+  return show(api, session, [view], kind === "folder" ? "Confirm this folder for AIESEC Forms" : "Confirm this Sheet for AIESEC Forms");
 }
 
 /**
