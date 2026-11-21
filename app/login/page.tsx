@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AiesecHuman, Alert, Button, Link } from "@/components/aiesec";
+import { SiteFooter } from "@/components/app/SiteFooter";
 import { AppMark } from "@/components/brand/Logo";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { safeReturnTo } from "@/lib/auth/oauth";
@@ -33,42 +34,45 @@ export default async function LoginPage({ searchParams }: Props) {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <main className="flex flex-col px-4 py-8 sm:px-8 lg:px-16">
-        <AppMark />
-        <div className="flex flex-1 items-center py-12">
-          <div className="flex w-full max-w-md flex-col gap-6">
-            <h1 className="ae-display">
-              Build a form in <strong>a minute</strong>
-            </h1>
-            <p className="ae-body-lg text-text-muted">
-              Sign in with your AIESEC account. Responses go straight to your Google Sheet, webhook or database. We never keep them.
-            </p>
-            {error && (
-              <Alert tone="danger" title={error.title} live>
-                {error.body}
-              </Alert>
-            )}
-            {signedOut && !error && (
-              <Alert tone="success" title="You're signed out" live>
-                See you next time.
-              </Alert>
-            )}
-            <div className="flex flex-col gap-3">
-              <Button as="a" href={loginHref} variant="primary" size="lg" block>
-                Continue with AIESEC
-              </Button>
-              {devLoginEnabled() && (
-                <Button as="a" href={`/api/auth/dev-login?returnTo=${encodeURIComponent(returnTo)}`} variant="tertiary" block>
-                  Use a development account
-                </Button>
+      <div className="flex flex-col">
+        <main className="flex flex-1 flex-col px-4 py-8 sm:px-8 lg:px-16">
+          <AppMark />
+          <div className="flex flex-1 items-center py-12">
+            <div className="flex w-full max-w-md flex-col gap-6">
+              <h1 className="ae-display">
+                Build a form in <strong>a minute</strong>
+              </h1>
+              <p className="ae-body-lg text-text-muted">
+                Sign in with your AIESEC account. Responses go straight to your Google Sheet, webhook or database. We never keep them.
+              </p>
+              {error && (
+                <Alert tone="danger" title={error.title} live>
+                  {error.body}
+                </Alert>
               )}
+              {signedOut && !error && (
+                <Alert tone="success" title="You're signed out" live>
+                  See you next time.
+                </Alert>
+              )}
+              <div className="flex flex-col gap-3">
+                <Button as="a" href={loginHref} variant="primary" size="lg" block>
+                  Continue with AIESEC
+                </Button>
+                {devLoginEnabled() && (
+                  <Button as="a" href={`/api/auth/dev-login?returnTo=${encodeURIComponent(returnTo)}`} variant="tertiary" block>
+                    Use a development account
+                  </Button>
+                )}
+              </div>
+              <p className="ae-body-sm text-text-muted">
+                For AIESEC members with a current position in EXPA. <Link href="/privacy">How we handle data</Link>
+              </p>
             </div>
-            <p className="ae-body-sm text-text-muted">
-              For AIESEC members with a current position in EXPA. <Link href="/privacy">How we handle data</Link>
-            </p>
           </div>
-        </div>
-      </main>
+        </main>
+        <SiteFooter containerClassName="px-4 sm:px-8 lg:px-16" />
+      </div>
 
       <aside aria-hidden="true" className="relative hidden overflow-hidden bg-brand lg:flex lg:items-center lg:justify-center">
         <div className="absolute -right-24 -bottom-24 opacity-15">
