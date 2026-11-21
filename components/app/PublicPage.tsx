@@ -1,6 +1,6 @@
 import NextLink from "next/link";
 
-import { AppMark } from "@/components/brand/Logo";
+import { AppMark, FooterBrand } from "@/components/brand/Logo";
 
 // Shell for public reading pages (terms, privacy, report a form): one centred
 // column, so the logo, the content and the footer share the same edges.
@@ -20,15 +20,17 @@ export function PublicPage({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <footer className="border-t border-border">
-        <nav aria-label="Legal" className={`${COLUMN} flex flex-wrap items-center gap-x-5 gap-y-2 py-6 ae-caption text-text-muted`}>
-          <span>AIESEC Forms is run by AIESEC in Lebanon.</span>
-          <NextLink href="/terms" className="ae-link">
-            Terms of Service
-          </NextLink>
-          <NextLink href="/privacy" className="ae-link">
-            Privacy Policy
-          </NextLink>
-        </nav>
+        <div className={`${COLUMN} flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between`}>
+          <FooterBrand />
+          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5 gap-y-2 ae-caption text-text-muted">
+            <NextLink href="/terms" className="ae-link">
+              Terms of Service
+            </NextLink>
+            <NextLink href="/privacy" className="ae-link">
+              Privacy Policy
+            </NextLink>
+          </nav>
+        </div>
       </footer>
     </div>
   );

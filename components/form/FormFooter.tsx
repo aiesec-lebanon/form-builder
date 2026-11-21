@@ -2,12 +2,12 @@
 
 import * as React from "react";
 
-import { AiesecLogo } from "@/components/brand/Logo";
+import { FooterBrand } from "@/components/brand/Logo";
 
 import { ContactOwnerDialog } from "./ContactOwner";
 
 // The public form's footer, after Google Forms': safety note, contact, terms,
-// privacy, report, and the AIESEC logo (never the "Powered by AIESEC" mark).
+// privacy, report, and the AIESEC Forms sign-off (never the "Powered by AIESEC" mark).
 
 const linkClass = "ae-link cursor-pointer border-0 bg-transparent p-0 whitespace-nowrap";
 
@@ -60,8 +60,8 @@ export function FormFooter({ slug, turnstileSiteKey = null }: Props) {
           <span className="underline">Report</span>
         )}
       </p>
-      <a href="/" target="_blank" rel="noopener" aria-label="AIESEC Forms" className="mt-2 no-underline opacity-90 hover:opacity-100">
-        <AiesecLogo height={18} />
+      <a href="/" target="_blank" rel="noopener" className="mt-2 no-underline opacity-90 hover:opacity-100">
+        <FooterBrand />
       </a>
 
       {slug && <ContactOwnerDialog slug={slug} open={contactOpen} onClose={() => setContactOpen(false)} turnstileSiteKey={turnstileSiteKey} />}
